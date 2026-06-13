@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -16,22 +16,22 @@ const LockClosedIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export default function NetworkPublishEngine() {
+// 1. Move logic into a content component
+function PublishContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const action = searchParams.get('action') || 'collab'; // 'collab', 'component', or 'arena'
+  const action = searchParams.get('action') || 'collab';
 
   const [loading, setLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  // Unified Form State
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priceOrBudget: '',
-    type: 'equity', // for collab: 'equity' or 'bounty'
+    type: 'equity',
     tagsOrLanguage: '',
-    durationDays: '7', // for arena
+    durationDays: '7',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -43,15 +43,12 @@ export default function NetworkPublishEngine() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. If it requires payment (Bounty or Arena), trigger Escrow Simulation
     if ((action === 'collab' && formData.type === 'bounty') || action === 'arena') {
       setProcessingPayment(true);
-      // Simulate Stripe/Bank Processing delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       setProcessingPayment(false);
     }
 
-    // 2. Route the data to the correct database table
     if (action === 'collab') {
       const tagArray = formData.tagsOrLanguage.split(',').map(t => t.trim()).filter(Boolean);
       await supabase.from('collab_posts').insert({
@@ -86,19 +83,15 @@ export default function NetworkPublishEngine() {
       });
     }
 
-    // 3. Return to the Network Hub
     router.push('/builder/network');
   };
 
-  // Financial Calculations for the UI
   const rawAmount = parseFloat(formData.priceOrBudget) || 0;
-  const arenaHostingFee = rawAmount * 0.20; // 20% fee
+  const arenaHostingFee = rawAmount * 0.20;
   const arenaTotal = rawAmount + arenaHostingFee;
 
   return (
     <div className="min-h-screen bg-[#0b1120] text-slate-300 font-sans relative pb-24">
-      
-      {/* ── Fixed Header ── */}
       <div className="sticky top-0 z-40 bg-[#0f172a]/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center shadow-sm">
         <button onClick={() => router.back()} className="w-10 h-10 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-800 transition-colors mr-4">
           <ArrowLeftIcon />
@@ -113,8 +106,6 @@ export default function NetworkPublishEngine() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 mt-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* ── Payment Processing Overlay ── */}
         {processingPayment && (
           <div className="fixed inset-0 z-50 bg-[#0b1120]/80 backdrop-blur-sm flex flex-col items-center justify-center">
             <div className="w-16 h-16 border-4 border-slate-800 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
@@ -124,7 +115,6 @@ export default function NetworkPublishEngine() {
         )}
 
         <div className="bg-[#0f172a] border border-slate-800 p-8 md:p-12 rounded-3xl shadow-xl flex flex-col gap-8">
-          
           <div>
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
               {action === 'arena' ? 'Tournament Name' : 'Title'}
@@ -146,8 +136,6 @@ export default function NetworkPublishEngine() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Conditional Type Select (Only for Collab) */}
             {action === 'collab' && (
               <div>
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Collaboration Type</label>
@@ -161,7 +149,6 @@ export default function NetworkPublishEngine() {
               </div>
             )}
 
-            {/* Price / Budget Input */}
             <div>
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
                 {action === 'component' && 'Listing Price (₹)'}
@@ -177,7 +164,6 @@ export default function NetworkPublishEngine() {
               />
             </div>
 
-            {/* Tags / Duration Input */}
             {action === 'arena' ? (
               <div>
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tournament Duration (Days)</label>
@@ -204,7 +190,6 @@ export default function NetworkPublishEngine() {
             )}
           </div>
 
-          {/* ── Dynamic Escrow / Checkout Ledger ── */}
           {(action === 'arena' || (action === 'collab' && formData.type === 'bounty')) && (
             <div className="bg-[#0b1120] border border-slate-800 rounded-xl p-6 mt-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -246,7 +231,6 @@ export default function NetworkPublishEngine() {
             </div>
           )}
 
-          {/* Submit Button */}
           <button 
             onClick={handleSubmit}
             disabled={loading || !formData.title}
@@ -261,9 +245,17 @@ export default function NetworkPublishEngine() {
               <><LockClosedIcon /> Deposit Funds & Publish</>))
             }
           </button>
-
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. Export the component wrapped in Suspense
+export default function NetworkPublishEngine() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1120] flex items-center justify-center text-slate-400 font-bold tracking-widest uppercase text-sm">Loading Engine...</div>}>
+      <PublishContent />
+    </Suspense>
   );
 }

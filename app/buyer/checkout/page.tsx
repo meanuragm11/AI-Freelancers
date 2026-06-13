@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -16,7 +16,8 @@ const CheckCircleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export default function CheckoutPage() {
+// 1. Move logic into a content component
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const toolId = searchParams.get('id');
@@ -47,14 +48,11 @@ export default function CheckoutPage() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user && tool) {
-      // Simulate Stripe Processing Time
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Calculate renewal date (30 days from now)
       const renewalDate = new Date();
       renewalDate.setDate(renewalDate.getDate() + 30);
 
-      // Insert into active_subscriptions
       const { error } = await supabase.from('active_subscriptions').insert({
         buyer_id: user.id,
         listing_id: tool.id,
@@ -64,7 +62,6 @@ export default function CheckoutPage() {
       });
 
       if (!error) {
-        // Route to the Buyer's Tech Stack page
         router.push('/buyer/stack');
       } else {
         console.error("Checkout failed:", error);
@@ -84,8 +81,6 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans">
-      
-      {/* ── Left Side: Order Summary ── */}
       <div className="w-full md:w-1/2 bg-slate-50 p-8 md:p-16 border-r border-slate-200 flex flex-col">
         <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-8">Platform<span className="text-blue-600">.ai</span></h1>
         
@@ -120,9 +115,7 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* ── Right Side: Payment Form ── */}
       <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center relative">
-        
         {processing && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
             <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
@@ -171,7 +164,15 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-
     </div>
+  );
+}
+
+// 2. Export the component wrapped in Suspense
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-bold tracking-widest uppercase text-sm">Loading Checkout...</div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }
