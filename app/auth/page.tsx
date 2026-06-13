@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function AuthGateway() {
+// 1. We move the main logic into a separate component
+function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Role defaults to buyer, but reads from URL if they clicked a specific button on the landing page
   const initialRole = searchParams.get('role') || 'buyer';
 
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState(initialRole);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); 
   
   const [formData, setFormData] = useState({
     email: '',
@@ -20,6 +20,18 @@ export default function AuthGateway() {
     fullName: '',
     companyName: ''
   });
+
+  useEffect(() => {
+    async function checkActiveSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
+      } else {
+        setLoading(false);
+      }
+    }
+    checkActiveSession();
+  }, [router, role]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -30,7 +42,6 @@ export default function AuthGateway() {
     setLoading(true);
 
     if (isLogin) {
-      // LOGIN LOGIC
       const { error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -40,11 +51,9 @@ export default function AuthGateway() {
         alert(error.message);
         setLoading(false);
       } else {
-        // Route based on selected intent
         router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
       }
     } else {
-      // SIGNUP LOGIC
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -60,26 +69,30 @@ export default function AuthGateway() {
         alert(error.message);
         setLoading(false);
       } else if (data.user) {
-        // Create their initial profile record immediately
         await supabase.from('profiles').insert({
           id: data.user.id,
           full_name: formData.fullName,
           company_name: formData.companyName,
-          reputation_score: role === 'builder' ? 100 : 0 // Give builders a baseline starting rep
+          reputation_score: role === 'builder' ? 100 : 0
         });
 
-        alert("Account created successfully!");
         router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
       }
     }
   };
 
-  // UI styling switches based on the role to give immediate visual feedback
   const isBuilder = role === 'builder';
+
+  if (loading && !formData.email) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${isBuilder ? 'bg-[#0b1120]' : 'bg-slate-50'}`}>
+        <div className={`w-12 h-12 border-4 rounded-full animate-spin ${isBuilder ? 'border-slate-800 border-t-indigo-500' : 'border-slate-200 border-t-blue-600'}`}></div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col justify-center items-center p-6 font-sans transition-colors duration-500 ${isBuilder ? 'bg-[#0b1120]' : 'bg-slate-50'}`}>
-      
       <div className={`w-full max-w-md p-8 sm:p-10 rounded-3xl shadow-2xl transition-colors duration-500 border ${isBuilder ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'}`}>
         
         <div className="text-center mb-8">
@@ -91,7 +104,6 @@ export default function AuthGateway() {
           </p>
         </div>
 
-        {/* Role Toggle */}
         <div className={`flex p-1 rounded-xl mb-8 ${isBuilder ? 'bg-slate-900' : 'bg-slate-100'}`}>
           <button 
             type="button"
@@ -110,7 +122,6 @@ export default function AuthGateway() {
         </div>
 
         <form onSubmit={handleAuth} className="flex flex-col gap-5">
-          
           {!isLogin && (
             <>
               <div>
@@ -151,8 +162,16 @@ export default function AuthGateway() {
             {isLogin ? "Need an account? Sign up" : "Already have an account? Log in"}
           </button>
         </div>
-
       </div>
     </div>
+  );
+}
+
+// 2. We export the Suspense Boundary as the default page
+export default function AuthGateway() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1120] flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest text-sm">Loading Security Gateway...</div>}>
+      <AuthContent />
+    </Suspense>
   );
 }
