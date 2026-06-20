@@ -37,7 +37,6 @@ function AuthContent() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Google OAuth Handler
   const handleGoogleAuth = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
