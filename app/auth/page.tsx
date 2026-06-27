@@ -1,141 +1,160 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
-// 1. We move the main logic into a separate component
 function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialRole = searchParams.get('role') || 'buyer';
 
-  const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState(initialRole);
-  const [loading, setLoading] = useState(true); 
-  
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    fullName: '',
-    companyName: ''
-  });
+  const [isLogin, setIsLogin] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [role, setRole] = useState<'buyer' | 'builder'>('buyer');
+  const [verificationSent, setVerificationSent] = useState(false);
+
+  const [formData, setFormData] = useState({ email: '', password: '', fullName: '' });
 
   useEffect(() => {
-    async function checkActiveSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
-      } else {
-        setLoading(false);
-      }
-    }
-    checkActiveSession();
-  }, [router, role]);
+    const urlRole = searchParams.get('role');
+    if (urlRole === 'builder' || urlRole === 'buyer') setRole(urlRole);
+  }, [searchParams]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
+  // --- GOOGLE SINGLE SIGN-ON ---
   const handleGoogleAuth = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) alert(error.message);
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // We attach the role to the callback URL so the backend knows what profile to create
+          redirectTo: `${window.location.origin}/auth/callback?role=${role}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      alert("Google Auth Error: " + error.message);
+      setGoogleLoading(false);
+    }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (data.user) {
+    // Fetch their profile to check their role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_freelancer')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profile?.is_freelancer) {
+      router.push('/builder/dashboard'); // Send experts to their dashboard
+    } else {
+      router.push('/buyer/dashboard');   // Send clients to the Buyer OS
+    }
+  }
+
+  // --- STRICT GMAIL VALIDATION (For Manual Entry) ---
+  const validateStrictGmail = (email: string) => {
+    const lowerEmail = email.toLowerCase().trim();
+    if (!lowerEmail.endsWith('@gmail.com')) return "Security Policy: Only @gmail.com addresses are permitted.";
+    if (lowerEmail.includes('+')) return "Security Policy: Gmail alias addresses (+) are strictly prohibited.";
+    const localPart = lowerEmail.split('@')[0];
+    if ((localPart.match(/\./g) || []).length > 2) return "Security Policy: Suspicious email format detected.";
+    return null;
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+    try {
+      const validationError = validateStrictGmail(formData.email);
+      if (validationError) throw new Error(validationError);
 
-      if (error) {
-        alert(error.message);
-        setLoading(false);
-      } else {
-        router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
-      }
-    } else {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            role: role
-          }
-        }
-      });
-
-      if (error) {
-        alert(error.message);
-        setLoading(false);
-      } else if (data.user) {
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          full_name: formData.fullName,
-          company_name: formData.companyName,
-          reputation_score: role === 'builder' ? 100 : 0
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: formData.email.trim(),
+          password: formData.password,
         });
-
+        if (error) {
+          if (error.message.includes("Email not confirmed")) throw new Error("Please verify your email inbox first.");
+          throw error;
+        }
         router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email.trim(),
+          password: formData.password,
+          options: {
+            data: { full_name: formData.fullName, role: role },
+            emailRedirectTo: `${window.location.origin}/auth/callback?role=${role}`
+          }
+        });
+        if (error) throw error;
+
+        // Profiles for email signups are created here. Google profiles are created in the callback route.
+        if (data.user) {
+          await supabase.from('profiles').upsert([
+            { id: data.user.id, full_name: formData.fullName, role: role }
+          ]);
+        }
+        setVerificationSent(true);
       }
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isBuilder = role === 'builder';
-
-  if (loading && !formData.email) {
+  if (verificationSent) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isBuilder ? 'bg-[#0b1120]' : 'bg-slate-50'}`}>
-        <div className={`w-12 h-12 border-4 rounded-full animate-spin ${isBuilder ? 'border-slate-800 border-t-indigo-500' : 'border-slate-200 border-t-blue-600'}`}></div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-10 shadow-xl text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-2xl">✉️</span>
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Verify Your Identity</h2>
+          <p className="text-sm font-medium text-slate-500 mb-8">
+            We have sent a secure link to <span className="font-bold text-slate-900">{formData.email}</span>.
+          </p>
+          <button onClick={() => window.location.reload()} className="text-sm font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest transition-colors">
+            I have verified my email → Log In
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex flex-col justify-center items-center p-6 font-sans transition-colors duration-500 ${isBuilder ? 'bg-[#0b1120]' : 'bg-slate-50'}`}>
-      <div className={`w-full max-w-md p-8 sm:p-10 rounded-3xl shadow-2xl transition-colors duration-500 border ${isBuilder ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-slate-200'}`}>
-        
-        <div className="text-center mb-8">
-          <h1 className={`text-2xl font-black tracking-tight mb-2 ${isBuilder ? 'text-white' : 'text-slate-900'}`}>
-            Platform<span className="text-blue-600">.ai</span>
-          </h1>
-          <p className={`text-sm font-bold uppercase tracking-widest ${isBuilder ? 'text-indigo-400' : 'text-slate-400'}`}>
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
 
-        <div className={`flex p-1 rounded-xl mb-8 ${isBuilder ? 'bg-slate-900' : 'bg-slate-100'}`}>
-          <button 
-            type="button"
-            onClick={() => setRole('buyer')}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${!isBuilder ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            Buyer
-          </button>
-          <button 
-            type="button"
-            onClick={() => setRole('builder')}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${isBuilder ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Builder
-          </button>
-        </div>
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl relative z-10">
+        <Link href="/" className="text-2xl font-black tracking-tight text-slate-900 flex justify-center mb-8">
+          Zelance<span className="text-blue-600">.</span>
+        </Link>
 
-        {/* Google Authentication Button */}
+        {!isLogin && (
+          <div className="flex bg-slate-100 p-1 rounded-xl mb-8">
+            <button type="button" onClick={() => setRole('buyer')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${role === 'buyer' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Enterprise Buyer</button>
+            <button type="button" onClick={() => setRole('builder')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${role === 'builder' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>AI Builder</button>
+          </div>
+        )}
+
+        {/* --- GOOGLE BUTTON --- */}
         <button
-          type="button"
           onClick={handleGoogleAuth}
-          className={`w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-sm font-bold transition-all border shadow-sm ${isBuilder ? 'bg-slate-900 border-slate-700 text-white hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+          disabled={googleLoading}
+          className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 py-3.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 mb-6"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -143,67 +162,47 @@ function AuthContent() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
           </svg>
-          Continue with Google
+          {googleLoading ? 'Connecting to Google...' : `Continue with Google`}
         </button>
 
-        <div className="flex items-center my-5">
-          <div className={`flex-1 border-t ${isBuilder ? 'border-slate-800' : 'border-slate-200'}`}></div>
-          <span className={`px-4 text-[10px] font-bold uppercase tracking-widest ${isBuilder ? 'text-slate-500' : 'text-slate-400'}`}>
-            Or use email
-          </span>
-          <div className={`flex-1 border-t ${isBuilder ? 'border-slate-800' : 'border-slate-200'}`}></div>
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1 h-px bg-slate-200"></div>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Or Email</span>
+          <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
-        <form onSubmit={handleAuth} className="flex flex-col gap-5">
+        <form onSubmit={handleEmailAuth} className="flex flex-col gap-4">
           {!isLogin && (
-            <>
-              <div>
-                <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${isBuilder ? 'text-slate-400' : 'text-slate-500'}`}>Full Name</label>
-                <input required type="text" name="fullName" value={formData.fullName} onChange={handleChange} className={`w-full rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all ${isBuilder ? 'bg-slate-900 border border-slate-800 text-white focus:border-indigo-500' : 'bg-white border border-slate-200 text-slate-900 focus:border-blue-500'}`} />
-              </div>
-              <div>
-                <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${isBuilder ? 'text-slate-400' : 'text-slate-500'}`}>Company Name (Optional)</label>
-                <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} className={`w-full rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all ${isBuilder ? 'bg-slate-900 border border-slate-800 text-white focus:border-indigo-500' : 'bg-white border border-slate-200 text-slate-900 focus:border-blue-500'}`} />
-              </div>
-            </>
+            <div>
+              <input required type="text" placeholder="Full Name" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />
+            </div>
           )}
-
           <div>
-            <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${isBuilder ? 'text-slate-400' : 'text-slate-500'}`}>Email Address</label>
-            <input required type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all ${isBuilder ? 'bg-slate-900 border border-slate-800 text-white focus:border-indigo-500' : 'bg-white border border-slate-200 text-slate-900 focus:border-blue-500'}`} />
+            <input required type="email" placeholder="name@gmail.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />
+          </div>
+          <div>
+            <input required type="password" placeholder="Password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />
           </div>
 
-          <div>
-            <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${isBuilder ? 'text-slate-400' : 'text-slate-500'}`}>Password</label>
-            <input required type="password" name="password" value={formData.password} onChange={handleChange} className={`w-full rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all ${isBuilder ? 'bg-slate-900 border border-slate-800 text-white focus:border-indigo-500' : 'bg-white border border-slate-200 text-slate-900 focus:border-blue-500'}`} />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className={`w-full py-4 rounded-xl text-sm font-black uppercase tracking-widest mt-2 transition-all disabled:opacity-50 ${isBuilder ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'}`}
-          >
-            {loading ? 'Authenticating...' : (isLogin ? `Log In as ${role}` : 'Create Account')}
+          <button type="submit" disabled={loading} className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-md disabled:opacity-50">
+            {loading ? 'Authenticating...' : (isLogin ? 'Secure Login' : 'Create Account')}
           </button>
         </form>
 
-        <div className={`mt-8 text-center border-t pt-6 ${isBuilder ? 'border-slate-800' : 'border-slate-100'}`}>
-          <button 
-            onClick={() => setIsLogin(!isLogin)}
-            className={`text-xs font-bold uppercase tracking-widest hover:underline ${isBuilder ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            {isLogin ? "Need an account? Sign up" : "Already have an account? Log in"}
+        <p className="text-center text-sm font-medium text-slate-500 mt-8">
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 font-bold hover:underline">
+            {isLogin ? 'Sign up' : 'Log in'}
           </button>
-        </div>
+        </p>
       </div>
     </div>
   );
 }
 
-// 2. We export the Suspense Boundary as the default page
-export default function AuthGateway() {
+export default function AuthPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0b1120] flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest text-sm">Loading Security Gateway...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading Gateway...</div>}>
       <AuthContent />
     </Suspense>
   );

@@ -1,0 +1,92 @@
+ai-discovery-platform/
+├── .claude/
+│   └── skills/
+│       └── integration-nextjs-app-router/
+├── app/
+│   ├── admin/
+│   │   └── page.tsx
+│   ├── api/
+│   │   └── stripe/
+│   │       └── connect/
+│   │           └── route.ts
+│   ├── auth/
+│   ├── builder/
+│   │   ├── dashboard/
+│   │   │   └── page.tsx
+│   │   ├── edit/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx
+│   │   ├── exchange/
+│   │   │   └── page.tsx
+│   │   ├── inbox/
+│   │   │   └── page.tsx
+│   │   ├── network/
+│   │   │   ├── publish/
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── portfolio/
+│   │   │   └── page.tsx
+│   │   ├── profile/
+│   │   │   └── page.tsx
+│   │   ├── publish/
+│   │   │   ├── preview/
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── wallet/
+│   │   │   └── page.tsx
+│   │   ├── webhooks/
+│   │   │   └── page.tsx
+│   │   └── layout.tsx
+│   ├── buyer/
+│   │   ├── billing/
+│   │   │   └── page.tsx
+│   │   ├── checkout/
+│   │   │   └── page.tsx
+│   │   ├── discover/
+│   │   ├── freelancers/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx
+│   │   ├── projects/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx
+│   │   ├── stack/
+│   │   │   └── page.tsx
+│   │   ├── team/
+│   │   │   └── page.tsx
+│   │   ├── tool/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx
+│   │   └── layout.tsx
+│   ├── components/
+│   │   └── PostHogProvider.tsx
+│   ├── login/
+│   │   └── page.tsx
+│   ├── network/
+│   │   └── page.tsx
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── lib/
+│   └── supabaseClient.ts
+├── public/
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── .env.local
+├── .gitignore
+├── AGENTS.md
+├── CLAUDE.md
+├── eslint.config.mjs
+├── generate-blueprint.js
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── README.md
+├── tailwind.config.ts
+└── tsconfig.json

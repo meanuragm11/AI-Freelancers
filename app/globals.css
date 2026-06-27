@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
 body {
-  background-color: #F8FAFC; /* This maps to slate-50 */
-  color: #0F172A; /* This maps to slate-900 */
+  background-color: #f8fafc; /* This is tailwind's slate-50 */
+  color: #0f172a; /* This is tailwind's slate-900 */
 }

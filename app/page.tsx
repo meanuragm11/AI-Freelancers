@@ -1,317 +1,328 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-/* ── Inline SVG Icons ── */
-const TrophyIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
-  </svg>
-);
-const PuzzleIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a1.5 1.5 0 01-1.5 1.5H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V8.25c0-.621-.504-1.125-1.125-1.125h-2.625M12 15.75a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" />
-  </svg>
-);
-const UsersIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-  </svg>
-);
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-  </svg>
-);
-const ArrowRightIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-  </svg>
-);
-
 export default function LandingPage() {
-  // Hero Data
-  const [topFreelancers, setTopFreelancers] = useState<any[]>([]);
-  const [trendingServices, setTrendingServices] = useState<any[]>([]);
-  
-  // Ecosystem Feeds
-  const [highValueBounties, setHighValueBounties] = useState<any[]>([]);
-  const [trendingComponents, setTrendingComponents] = useState<any[]>([]);
-  const [arenaChampions, setArenaChampions] = useState<any[]>([]);
+  const router = useRouter();
+  const [searchInput, setSearchInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
+  // --- NEW: DYNAMIC DATA STATES ---
+  const [loadingData, setLoadingData] = useState(true);
+  const [eliteTalent, setEliteTalent] = useState<any[]>([]);
+  const [topComponents, setTopComponents] = useState<any[]>([]);
+  const [topContributors, setTopContributors] = useState<any[]>([]);
+
+  // --- NEW: FETCH PRODUCTION DATA ---
   useEffect(() => {
-    async function fetchMarketplaceData() {
-      // 1. Hero: Top Overall Freelancers
-      const { data: freelancers } = await supabase
-        .from('profiles')
-        .select('id, full_name, company_name, reputation_score')
-        .order('reputation_score', { ascending: false })
-        .limit(4);
-      if (freelancers) setTopFreelancers(freelancers);
+    async function fetchPlatformData() {
+      try {
+        // 1. Fetch Elite Talent (Top 4 verified builders)
+        const { data: talentData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'builder')
+          .eq('is_verified', true) // Assuming elite talent must be verified
+          .limit(4);
+        
+        if (talentData) setEliteTalent(talentData);
 
-      // 2. Hero: Trending Startup Services (Tools)
-      const { data: tools } = await supabase
-        .from('listings')
-        .select('*, profiles(company_name)')
-        .order('created_at', { ascending: false })
-        .limit(4);
-      if (tools) setTrendingServices(tools);
+        // 2. Fetch Top Components (Top 5 by sales volume)
+        const { data: componentData } = await supabase
+          .from('components')
+          .select('*')
+          .order('sales_count', { ascending: false })
+          .limit(5);
 
-      // 3. Ecosystem Feed: Top Paying Collab Bounties
-      const { data: bounties } = await supabase
-        .from('collab_posts')
-        .select('*, profiles(company_name)')
-        .eq('type', 'bounty')
-        .order('budget', { ascending: false })
-        .limit(3);
-      if (bounties) setHighValueBounties(bounties);
+        if (componentData) setTopComponents(componentData);
 
-      // 4. Ecosystem Feed: Top Selling Components
-      const { data: components } = await supabase
-        .from('network_components')
-        .select('*, profiles(company_name)')
-        .order('price', { ascending: false })
-        .limit(3);
-      if (components) setTrendingComponents(components);
+        // 3. Fetch The Arena Leaders (Top 5 by rank)
+        const { data: arenaData } = await supabase
+          .from('profiles')
+          .select('id, full_name, headline, avatar_url, arena_rank')
+          .eq('role', 'builder')
+          .order('arena_rank', { ascending: true })
+          .limit(5);
 
-      // 5. Ecosystem Feed: Arena Champions (Top Freelancers of the Week simulation)
-      // Note: In a real app we'd filter by recent activity, here we take a slice of top profiles
-      const { data: champions } = await supabase
-        .from('profiles')
-        .select('id, full_name, company_name, reputation_score')
-        .order('reputation_score', { ascending: false })
-        .limit(3);
-      if (champions) setArenaChampions(champions);
+        if (arenaData) setTopContributors(arenaData);
+
+      } catch (error) {
+        console.error("Error syncing platform data:", error);
+      } finally {
+        setLoadingData(false);
+      }
     }
-    fetchMarketplaceData();
+
+    fetchPlatformData();
   }, []);
 
-  return (
-    <div className="min-h-screen bg-[#0b1120] text-slate-300 font-sans selection:bg-blue-500/30">
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchInput.trim()) return;
+
+    setIsSearching(true);
+    let targetTab = 'experts'; 
+    const queryLower = searchInput.toLowerCase();
+
+    try {
+      const res = await fetch('/api/search-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchInput })
+      });
       
-      {/* ── Navigation ── */}
-      <nav className="absolute top-0 w-full z-50 border-b border-slate-800/50 bg-[#0b1120]/80 backdrop-blur-md">
-        <div className="max-w-[90rem] mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-sm"></div>
-            </div>
-            <span className="text-2xl font-black text-white tracking-tight">Platform<span className="text-blue-500">.ai</span></span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link href="/auth" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Sign In / Register</Link>
-          </div>
-        </div>
-      </nav>
+      if (res.ok) {
+        const data = await res.json();
+        targetTab = data.intent === 'components' ? 'components' : 'experts';
+      } else {
+        throw new Error('AI API Timeout or Rate Limit');
+      }
 
-      {/* ── Minimal Hero Section ── */}
-      <div className="pt-32 pb-12 px-6 max-w-[90rem] mx-auto text-center relative z-10">
-        <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-4">
-          The Global <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">AI Exchange.</span>
+    } catch (error) {
+      console.warn("AI Routing failed. Triggering Keyword Failsafe...");
+      const componentKeywords = ['bot', 'app', 'script', 'prompt', 'code', 'pipeline', 'tool', 'api', 'software', 'model', 'architecture', 'database'];
+      const isSeekingComponent = componentKeywords.some(keyword => queryLower.includes(keyword));
+      targetTab = isSeekingComponent ? 'components' : 'experts';
+    }
+
+    router.push(`/buyer/discover?tab=${targetTab}&q=${encodeURIComponent(searchInput)}`);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center relative overflow-hidden font-sans">
+      
+      <div className="absolute inset-0 z-0 h-[600px] w-full bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-40 pointer-events-none"></div>
+      
+      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 to-slate-50 pointer-events-none -z-10"></div>
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
+      <div className="absolute top-[10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+      <section className="w-full max-w-6xl mx-auto px-6 pt-16 md:pt-20 pb-20 flex flex-col items-center text-center relative z-10">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-black uppercase tracking-widest mb-8 shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+          Zelance Network v1.0 Live
+        </div>
+        <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
+          Find the top 1% of <br className="hidden md:block" />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">AI Engineers.</span>
         </h1>
-        <p className="text-lg text-slate-400 font-medium max-w-2xl mx-auto">
-          Hire elite AI freelancers, deploy startup infrastructure, and trade digital assets. All in one open ecosystem.
+        <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-12">
+          Search the global mesh for elite talent, acquire production-ready components, and deploy capital through secure escrow.
         </p>
-      </div>
 
-      {/* ── Side-by-Side Marketplace (The Core Vision) ── */}
-      <div className="max-w-[90rem] mx-auto px-6 pb-20 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="w-full max-w-3xl relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
           
-          {/* LEFT SIDE: AI Talent & Freelancers */}
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                  <StarIcon className="w-6 h-6 text-amber-500" /> Top AI Talent
-                </h2>
-                <p className="text-sm text-slate-500 font-medium">Ranked by successful bounties and platform reputation.</p>
-              </div>
-              <Link href="/builder/network" className="text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
-                View All <ArrowRightIcon className="w-3 h-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {topFreelancers.map((freelancer, idx) => (
-                <div key={freelancer.id} className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl flex items-center justify-between hover:border-indigo-500/50 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg ${idx === 0 ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
-                      #{idx + 1}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
-                        {freelancer.full_name || freelancer.company_name || 'Anonymous Builder'}
-                      </h3>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-                        {freelancer.company_name || 'Independent Freelancer'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Reputation</p>
-                    <div className="inline-flex items-center gap-1 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
-                      <StarIcon className="w-3 h-3 text-amber-500" />
-                      <span className="text-sm font-black text-white">{freelancer.reputation_score || 0}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {topFreelancers.length === 0 && (
-                <div className="p-10 border border-slate-800 rounded-2xl text-center text-slate-500 text-sm">Syncing Talent Network...</div>
+          <form onSubmit={handleSearch} className="relative flex items-center bg-white border border-slate-200 rounded-2xl p-2 shadow-xl">
+            <div className="pl-4 pr-2 text-slate-400">
+              {isSearching ? (
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               )}
             </div>
-          </div>
-
-          {/* RIGHT SIDE: Startup Services & Infrastructure */}
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                  <PuzzleIcon className="w-6 h-6 text-blue-500" /> Startup Services
-                </h2>
-                <p className="text-sm text-slate-500 font-medium">Trending enterprise APIs, agents, and infrastructure.</p>
-              </div>
-              <Link href="/buyer/discover" className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                Browse Hub <ArrowRightIcon className="w-3 h-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {trendingServices.map((service) => (
-                <Link href={`/buyer/tool/${service.id}`} key={service.id} className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl flex items-center justify-between hover:border-blue-500/50 transition-colors group">
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1 group-hover:text-blue-400 transition-colors line-clamp-1">{service.title}</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">By {service.profiles?.company_name || 'Verified Startup'}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Subscription</p>
-                    <p className="text-lg font-black text-white">₹{service.price} <span className="text-xs font-medium text-slate-500">/mo</span></p>
-                  </div>
-                </Link>
-              ))}
-              {trendingServices.length === 0 && (
-                 <div className="p-10 border border-slate-800 rounded-2xl text-center text-slate-500 text-sm">Indexing Services...</div>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── Live Ecosystem Feeds (3-Column Layout) ── */}
-      <div className="border-t border-slate-800 bg-[#0f172a] py-20 relative z-10">
-        <div className="max-w-[90rem] mx-auto px-6">
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Feed 1: Collab Board */}
-            <div className="bg-[#0b1120] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between group hover:border-emerald-500/30 transition-colors">
+            <input 
+              type="text" 
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              disabled={isSearching}
+              placeholder="Try searching 'AI Agent', 'Custom LLM', or 'AI Automation'..." 
+              className="flex-1 bg-transparent border-none text-slate-900 font-medium text-lg px-2 py-4 outline-none placeholder:text-slate-400 disabled:opacity-50" 
+            />
+            
+            <button 
+              type="submit" 
+              disabled={isSearching}
+              className="bg-slate-900 hover:bg-blue-600 disabled:bg-slate-700 text-white px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors duration-300"
+            >
+              {isSearching ? 'Analyzing Intent...' : 'Search'}
+            </button>
+          </form>
+
+        </div>
+      </section>
+
+      {loadingData ? (
+        <div className="w-full py-20 flex flex-col items-center justify-center relative z-10">
+           <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Global Mesh...</p>
+        </div>
+      ) : (
+        <>
+          {/* ELITE TALENT SECTION */}
+          <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
+            <div className="flex justify-between items-end mb-10">
               <div>
-                <div className="mb-6 border-b border-slate-800/50 pb-4">
-                  <h3 className="text-xl font-black text-white flex items-center gap-2 mb-1">
-                    <UsersIcon className="w-5 h-5 text-emerald-500" /> Collab Board
-                  </h3>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Claim escrow-secured cash bounties.</p>
-                </div>
-                
-                <div className="flex flex-col gap-4">
-                  {highValueBounties.map((bounty) => (
-                    <div key={bounty.id} className="flex justify-between items-center p-3 bg-slate-900/50 rounded-xl border border-slate-800/50">
-                      <div>
-                        <p className="text-sm font-bold text-slate-300 line-clamp-1">{bounty.title}</p>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest">By {bounty.profiles?.company_name || 'Enterprise'}</p>
-                      </div>
-                      <div className="text-right shrink-0 pl-2">
-                        <span className="text-sm font-black text-emerald-400">₹{bounty.budget}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {highValueBounties.length === 0 && <p className="text-xs text-slate-500 text-center py-4">No active bounties.</p>}
-                </div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Available Elite Talent</h2>
+                <p className="text-slate-500 font-medium">Ranked by Arena performance and Escrow history.</p>
               </div>
-              
-              <Link href="/builder/network" className="mt-6 w-full flex justify-center text-[10px] font-bold text-emerald-500 uppercase tracking-widest hover:text-emerald-400 transition-colors">
-                View All Bounties &rarr;
-              </Link>
+              <Link href="/buyer/discover?tab=experts" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Builders →</Link>
             </div>
 
-            {/* Feed 2: Component Exchange */}
-            <div className="bg-[#0b1120] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between group hover:border-purple-500/30 transition-colors">
-              <div>
-                <div className="mb-6 border-b border-slate-800/50 pb-4">
-                  <h3 className="text-xl font-black text-white flex items-center gap-2 mb-1">
-                    <PuzzleIcon className="w-5 h-5 text-purple-500" /> Component Exchange
-                  </h3>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Trade premium UI code and micro-assets.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {eliteTalent.length === 0 ? (
+                <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                  No verified builders available yet.
                 </div>
-                
-                <div className="flex flex-col gap-4">
-                  {trendingComponents.map((comp) => (
-                    <div key={comp.id} className="flex justify-between items-center p-3 bg-slate-900/50 rounded-xl border border-slate-800/50">
-                      <div>
-                        <p className="text-sm font-bold text-slate-300 line-clamp-1">{comp.title}</p>
-                        <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-widest">{comp.language_tag || 'Code'}</span>
-                      </div>
-                      <div className="text-right shrink-0 pl-2">
-                        <span className="text-sm font-black text-purple-400">₹{comp.price}</span>
-                      </div>
+              ) : (
+                eliteTalent.map((talent) => (
+                  <div key={talent.id} className="bg-white border border-slate-200 rounded-3xl p-6 hover:-translate-y-2 hover:shadow-xl transition-all duration-300 group relative flex flex-col">
+                    <div className="absolute top-6 right-6">
+                      <span className="flex w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
                     </div>
-                  ))}
-                  {trendingComponents.length === 0 && <p className="text-xs text-slate-500 text-center py-4">No components listed yet.</p>}
-                </div>
-              </div>
-              
-              <Link href="/builder/network" className="mt-6 w-full flex justify-center text-[10px] font-bold text-purple-500 uppercase tracking-widest hover:text-purple-400 transition-colors">
-                Browse Marketplace &rarr;
-              </Link>
-            </div>
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center mb-6 border border-blue-200/50 group-hover:scale-110 transition-transform duration-300 overflow-hidden">
+                      {talent.avatar_url ? (
+                        <img src={talent.avatar_url} alt={talent.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl font-black text-blue-600">{talent.full_name?.charAt(0) || 'E'}</span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight mb-1">{talent.full_name}</h3>
+                    <p className="text-sm font-medium text-slate-500 mb-4 line-clamp-2">{talent.headline}</p>
+                    
+                    {/* Render first tech stack tag if available */}
+                    {talent.tech_stack && talent.tech_stack.length > 0 && (
+                      <span className="self-start inline-block bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg mb-6 truncate max-w-full">
+                        {talent.tech_stack[0]}
+                      </span>
+                    )}
 
-            {/* Feed 3: The Arena (Top Freelancers of the Week) */}
-            <div className="bg-[#0b1120] border border-slate-800 rounded-3xl p-6 flex flex-col justify-between group hover:border-amber-500/30 transition-colors relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <TrophyIcon className="w-24 h-24 text-amber-500" />
-              </div>
-              <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
+                      <span className="text-sm font-black text-slate-900">${talent.hourly_rate_usd || 50}/hr</span>
+                      <Link href={`/profile/${talent.id}`} className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">View Profile →</Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* COMPONENT EXCHANGE SECTION */}
+          <section className="w-full max-w-7xl mx-auto px-6 py-10 mb-20 relative z-10">
+            <div className="mb-16">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 px-2">
                 <div>
-                  <div className="mb-6 border-b border-slate-800/50 pb-4">
-                    <h3 className="text-xl font-black text-white flex items-center gap-2 mb-1">
-                      <TrophyIcon className="w-5 h-5 text-amber-500" /> The Arena
-                    </h3>
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Top ranking freelancers of the week.</p>
-                  </div>
-                  
-                  <div className="flex flex-col gap-4">
-                    {arenaChampions.map((champ, idx) => (
-                      <div key={champ.id} className="flex justify-between items-center p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-black text-amber-500">#{idx + 1}</span>
-                          <div>
-                            <p className="text-sm font-bold text-white line-clamp-1">{champ.full_name || champ.company_name}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0 pl-2">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">Rating</p>
-                          <span className="text-sm font-black text-amber-400">{champ.reputation_score}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {arenaChampions.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Arena is calculating ranks.</p>}
-                  </div>
+                  <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Component Exchange</h3>
+                  <p className="text-slate-500 font-medium text-sm">Top purchased production-ready AI assets accelerating development today.</p>
                 </div>
-                
-                <Link href="/builder/network" className="mt-6 w-full flex justify-center text-[10px] font-bold text-amber-500 uppercase tracking-widest hover:text-amber-400 transition-colors">
-                  Join The Arena &rarr;
+                <Link href="/buyer/discover?tab=components" className="text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors flex items-center gap-1">
+                  View Exchange <span className="text-lg leading-none">→</span>
                 </Link>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                {topComponents.length === 0 ? (
+                  <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                    No components deployed to the exchange yet.
+                  </div>
+                ) : (
+                  topComponents.map(comp => (
+                    <div key={comp.id} onClick={() => router.push(`/buyer/components/${comp.id}`)} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 transition-all duration-300 group flex flex-col cursor-pointer">
+                      <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
+                          <img src={comp.thumbnail_url || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=400&h=250'} alt={comp.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                      <div className="p-5 flex flex-col flex-1">
+                          <h4 className="text-sm font-black text-slate-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">{comp.title}</h4>
+                          <div className="flex justify-between items-end mt-auto pt-4">
+                            <div>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Price</p>
+                              {comp.price_usd === 0 ? (
+                                <p className="text-base font-black text-green-600">FREE</p>
+                              ) : (
+                                <p className="text-base font-black text-slate-900">${comp.price_usd}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Sales</p>
+                              <p className="text-xs font-black text-blue-600">{comp.sales_count || 0}</p>
+                            </div>
+                          </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* THE ARENA SECTION */}
+            <div className="bg-slate-900 rounded-3xl p-8 md:p-10 relative overflow-hidden shadow-2xl mb-16">
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-40 pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 border-b border-slate-800 pb-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-widest mb-3 border border-amber-500/20 shadow-sm">
+                    👑 Live Rankings
+                  </div>
+                  <h3 className="text-3xl font-black text-white tracking-tight mb-2">The Arena</h3>
+                  <p className="text-slate-400 font-medium text-sm">Top contributors currently defining the global mesh architecture.</p>
+                </div>
+                <Link href="/builder/arena" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">
+                  View Leaderboard
+                </Link>
+              </div>
+
+              <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {topContributors.length === 0 ? (
+                  <div className="col-span-full py-8 text-center text-slate-500 text-sm font-bold border border-slate-800 rounded-3xl bg-slate-800/30">
+                    Arena rankings are currently calculating.
+                  </div>
+                ) : (
+                  topContributors.map((builder, index) => (
+                    <div key={builder.id} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800 transition-colors flex flex-col items-center text-center group">
+                      <div className="w-16 h-16 rounded-full overflow-hidden mb-4 border-2 border-slate-600 group-hover:border-amber-500 transition-colors">
+                        {builder.avatar_url ? (
+                          <img src={builder.avatar_url} className="w-full h-full object-cover" alt={builder.full_name} />
+                        ) : (
+                          <div className="w-full h-full bg-slate-700 flex items-center justify-center text-xl font-black text-slate-300">
+                            {builder.full_name?.charAt(0) || 'B'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-1">Rank #{builder.arena_rank || index + 1}</div>
+                      <Link href={`/profile/${builder.id}`} className="text-white font-black text-lg mb-1 hover:text-amber-500 transition-colors">
+                        {builder.full_name}
+                      </Link>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4 truncate w-full">{builder.headline || 'Zelance Builder'}</p>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-          </div>
-        </div>
-      </div>
+            <div className="mt-6 bg-white border border-slate-200 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 hover:shadow-xl transition-shadow duration-500">
+              <div className="max-w-xl">
+                <h3 className="text-2xl font-black text-slate-900 mb-3">Secure Collab & Escrow</h3>
+                <p className="text-slate-500 font-medium text-sm mb-6">Lock scope explicitly. Funds are held safely in a Razorpay nodal account until the 72-hour delivery window clears. Flat $5 platform fees. Zero friction.</p>
+                <Link href="/auth?role=buyer" className="text-sm font-bold text-slate-900 hover:text-blue-600 uppercase tracking-widest transition-colors flex items-center gap-2">Post an Open Bounty <span className="text-lg">→</span></Link>
+              </div>
+              <div className="w-full md:w-auto flex items-center gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Buyer</span>
+                  <div className="w-12 h-12 bg-white rounded-full shadow flex items-center justify-center text-xl">💼</div>
+                </div>
+                <div className="h-1 w-12 bg-blue-200 rounded-full relative">
+                   <div className="absolute top-0 left-0 h-full bg-blue-500 rounded-full w-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Escrow Lock</span>
+                  <div className="w-16 h-16 bg-blue-100 rounded-full shadow-inner border-2 border-blue-500 flex items-center justify-center text-xl">🔒</div>
+                </div>
+                <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Builder</span>
+                  <div className="w-12 h-12 bg-white rounded-full shadow flex items-center justify-center text-xl">💻</div>
+                </div>
+              </div>
+            </div>
 
+          </section>
+        </>
+      )}
     </div>
   );
 }
