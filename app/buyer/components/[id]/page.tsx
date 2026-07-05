@@ -20,8 +20,8 @@ interface ComponentDetail {
 
 interface BuilderProfile {
   full_name: string;
-  avatar_url: string;
-  headline: string;
+  avatar_url: string | null;
+  headline: string | null;
 }
 
 export default function ComponentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +34,8 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
   const [component, setComponent] = useState<ComponentDetail | null>(null);
   const [builder, setBuilder] = useState<BuilderProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [acquiring, setAcquiring] = useState(false);
 
   useEffect(() => {
     async function fetchComponentData() {
@@ -43,6 +45,7 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
           .from('components')
           .select('*')
           .eq('id', id)
+          .eq('status', 'published')
           .single();
 
         if (compError) throw compError;
@@ -51,7 +54,7 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
         // 2. Fetch the builder's profile using the builder_id from the component
         if (compData && compData.builder_id) {
           const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
+            .from('profiles_public')
             .select('full_name, avatar_url, headline')
             .eq('id', compData.builder_id)
             .single();
@@ -62,7 +65,7 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
             // Fallback if profile is missing
             setBuilder({
               full_name: "Verified Architect",
-              avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+              avatar_url: null,
               headline: "Elite Mesh Contributor"
             });
           }
@@ -98,6 +101,21 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
 
   const isFree = component.price_usd === 0;
 
+  const acquireFreeAsset = async () => {
+    setAcquiring(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/assets/${component.id}/acquire`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not acquire asset');
+      router.push('/buyer/library');
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'Could not acquire asset');
+    } finally {
+      setAcquiring(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-6">
       <div className="max-w-6xl mx-auto">
@@ -117,7 +135,13 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
           <div className="lg:col-span-2 space-y-8">
             {/* High-Res Hero Image */}
             <div className="w-full aspect-[16/9] bg-slate-200 rounded-3xl overflow-hidden shadow-sm border border-slate-200">
-              <img src={component.thumbnail_url || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=1200&h=600'} alt={component.title} className="w-full h-full object-cover" />
+              {component.thumbnail_url ? (
+                <img src={component.thumbnail_url} alt={component.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-300">
+                  <span className="text-slate-400 text-sm font-bold">No Image</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -182,13 +206,11 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
 
               {isFree ? (
                 <button 
-                  onClick={() => {
-                    // Record acquisition logic here in production
-                    router.push('/buyer/library');
-                  }}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors shadow-lg shadow-green-500/20"
+                  onClick={acquireFreeAsset}
+                  disabled={acquiring}
+                  className="w-full bg-green-500 hover:bg-green-600 disabled:bg-slate-300 text-white py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors shadow-lg shadow-green-500/20"
                 >
-                  Acquire For Free
+                  {acquiring ? 'Adding to Library...' : 'Acquire For Free'}
                 </button>
               ) : (
                 <RazorpayCheckoutButton 
@@ -198,6 +220,11 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
                   buttonText="Acquire Secure Asset" 
                 />
               )}
+              {actionError && (
+                <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">
+                  {actionError}
+                </p>
+              )}
             </div>
 
             {/* The Architect Profile Block */}
@@ -205,10 +232,16 @@ export default function ComponentDetailPage({ params }: { params: Promise<{ id: 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-lg group">
                 <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-4">Architected By</p>
                 <div className="flex items-center gap-4 mb-4">
-                  <img src={builder.avatar_url} alt={builder.full_name} className="w-16 h-16 rounded-2xl border-2 border-slate-700 object-cover" />
+                  {builder.avatar_url ? (
+                    <img src={builder.avatar_url} alt={builder.full_name} className="w-16 h-16 rounded-2xl border-2 border-slate-700 object-cover" />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-lg font-black text-slate-200">
+                      {builder.full_name.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h4 className="text-lg font-black text-white">{builder.full_name}</h4>
-                    <p className="text-xs font-medium text-slate-400 line-clamp-1">{builder.headline}</p>
+                    <p className="text-xs font-medium text-slate-400 line-clamp-1">{builder.headline ?? 'Elite Mesh Contributor'}</p>
                   </div>
                 </div>
                 <Link 

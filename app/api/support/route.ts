@@ -1,47 +1,143 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
+import {
+  SUPPORT_CATEGORIES,
+  SUPPORT_PRIORITIES,
+  type SupportPriority,
+} from '@/lib/support/constants';
+import {
+  getAuthenticatedUser,
+  getProfileName,
+  supabaseAdmin,
+  ticketDetailPath,
+  normalizeAttachments,
+} from '@/lib/support/server';
 
-// Initialize Supabase Admin to bypass RLS for system insertions
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-export async function POST(req: Request) {
+export async function GET() {
   try {
-    const body = await req.json();
-    const { name, email, category, subject, message, userId } = body;
-
-    if (!name || !email || !message) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 1. Determine Priority Logic (Escrow disputes are auto-critical)
-    let priority = 'normal';
-    if (category === 'Escrow & Payments') priority = 'critical';
-
-    // 2. Insert into Supabase
-    const { data: ticket, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('support_tickets')
-      .insert([{ user_id: userId || null, name, email, category, subject, message, priority }])
-      .select()
-      .single();
+      .select(
+        'id, ticket_number, category, subject, status, priority, created_at, updated_at'
+      )
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
 
     if (error) throw error;
 
-    // 3. Trigger Automated Email to User (Implementation depends on your provider, e.g., Resend)
-    /* await resend.emails.send({
-        from: 'support@zelance.com',
-        to: email,
-        subject: `[Ticket #${ticket.id.substring(0,6)}] We received your request`,
-        html: `<p>Hi ${name},</p><p>We received your ticket regarding "${subject}". Our elite support team will respond shortly.</p>`
+    return NextResponse.json({ tickets: data ?? [] });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const {
+      category,
+      subject,
+      description,
+      priority = 'medium',
+      email,
+      name,
+      transactionId,
+      escrowId,
+      projectId,
+      serviceId,
+      aiAssetId,
+      attachments,
+    } = body;
+
+    if (!category || !subject || !description || !email) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    if (!SUPPORT_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+    }
+
+    if (!SUPPORT_PRIORITIES.includes(priority as SupportPriority)) {
+      return NextResponse.json({ error: 'Invalid priority' }, { status: 400 });
+    }
+
+    const profileName = name?.trim() || (await getProfileName(user.id));
+    const contactEmail = email.trim();
+    const safeAttachments = normalizeAttachments(attachments);
+
+    const { data: ticket, error: ticketError } = await supabaseAdmin
+      .from('support_tickets')
+      .insert({
+        user_id: user.id,
+        name: profileName,
+        email: contactEmail,
+        category,
+        subject: subject.trim(),
+        message: description.trim(),
+        priority,
+        status: 'open',
+        transaction_id: transactionId || null,
+        escrow_id: escrowId || null,
+        project_id: projectId || null,
+        service_id: serviceId || null,
+        ai_asset_id: aiAssetId || null,
+      })
+      .select(
+        'id, ticket_number, category, subject, status, priority, created_at, updated_at'
+      )
+      .single();
+
+    if (ticketError) throw ticketError;
+
+    const { error: messageError } = await supabaseAdmin
+      .from('support_ticket_messages')
+      .insert({
+        ticket_id: ticket.id,
+        sender_id: user.id,
+        sender_role: 'user',
+        body: description.trim(),
+        attachments: safeAttachments,
       });
-    */
 
-    return NextResponse.json({ success: true, ticketId: ticket.id });
+    if (messageError) throw messageError;
 
-  } catch (error: any) {
-    console.error("Support API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const ticketLink = ticketDetailPath(ticket.ticket_number);
+
+    await sendNotification({
+      type: NotificationType.SUPPORT_TICKET,
+      recipientId: user.id,
+      recipientEmail: contactEmail,
+      title: 'Support ticket received',
+      message: `We received your request (${ticket.ticket_number}) regarding "${subject.trim()}". Our team will respond soon.`,
+      link: ticketLink,
+      metadata: {
+        ticketNumber: ticket.ticket_number,
+        category,
+        priority,
+        idempotencyKey: `support-ticket:${ticket.id}:created`,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      ticket,
+      ticketNumber: ticket.ticket_number,
+      ticketId: ticket.id,
+    });
+  } catch (error: unknown) {
+    console.error('Support API Error:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

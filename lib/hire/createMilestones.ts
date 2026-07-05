@@ -7,16 +7,16 @@ export async function createMilestones(
 ) {
   const payload = milestones.map((m, index) => ({
     collab_id: collabId,
-    milestone_order: index + 1,
+    order_index: m.milestone_order ?? index + 1,
     title: m.title,
     description: m.description,
     amount_usd: m.amount_usd,
-    due_date: m.due_date,
+    due_date: m.due_date || null,
     status: "draft",
   }));
 
   const { error } = await supabase
-    .from("project_milestones")
+    .from("milestones")
     .insert(payload);
 
   if (error) throw error;

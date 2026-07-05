@@ -35,8 +35,7 @@ export default function BuilderKYC() {
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          kyc_status: 'pending',
-          // payment_routing_id: 'rzp_route_generated_id' // Mock ID
+          kyc_status: 'pending'
         })
         .eq('id', user.id);
 

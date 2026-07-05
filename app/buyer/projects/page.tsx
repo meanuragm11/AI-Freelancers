@@ -21,7 +21,7 @@ export default function BuyerProjectsPage() {
 
       const { data, error } = await supabase
         .from('collabs')
-        .select('*, profiles!builder_id(full_name, avatar_url, headline)')
+        .select('*, profiles_public!builder_id(full_name, avatar_url, headline)')
         .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -49,7 +49,7 @@ export default function BuyerProjectsPage() {
             <Link href="/buyer/dashboard" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-600 mb-2 inline-flex items-center gap-1 transition-colors">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg> Back to Dashboard
             </Link>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">My Projects</h1>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">My Services</h1>
           </div>
           <Link href="/buyer/discover" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors flex items-center gap-2">
              Start New Project
@@ -78,12 +78,16 @@ export default function BuyerProjectsPage() {
             </div>
           ) : (
             filteredProjects.map(project => (
-              <div key={project.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col md:flex-row items-start md:items-center gap-6 group cursor-pointer" onClick={() => router.push(`/buyer/collabs/${project.id}`)}>
+              <div key={project.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col md:flex-row items-start md:items-center gap-6 group cursor-pointer" onClick={() => router.push(`/collab/${project.id}`)}>
                 
                 {/* Expert Info */}
                 <div className="flex items-center gap-4 md:w-1/4 shrink-0">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 relative shrink-0">
-                    <Image src={project.profiles?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100&h=100'} fill sizes="48px" className="object-cover" alt="Expert" />
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 relative shrink-0 flex items-center justify-center">
+                    {project.profiles?.avatar_url ? (
+                      <Image src={project.profiles.avatar_url} fill sizes="48px" className="object-cover" alt="Expert" />
+                    ) : (
+                      <span className="text-slate-400 text-sm font-bold">{project.profiles?.full_name?.charAt(0) || '?'}</span>
+                    )}
                   </div>
                   <div className="overflow-hidden">
                     <h4 className="text-sm font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">{project.profiles?.full_name || 'Verified Expert'}</h4>

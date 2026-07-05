@@ -2,60 +2,155 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { ServiceCard } from '@/components/homepage/ServiceCard';
+import { ServiceCardSkeleton } from '@/components/homepage/ServiceCardSkeleton';
+import { AssetCard } from '@/components/homepage/AssetCard';
+import { AssetCardSkeleton } from '@/components/homepage/AssetCardSkeleton';
+import type { ServiceCardData } from '@/types/marketplace';
+import { pickDisplayableImageUrl } from '@/lib/images';
+import { fetchArenaBuilders } from '@/lib/arena/rankBuilders';
 
 export default function LandingPage() {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // --- NEW: DYNAMIC DATA STATES ---
-  const [loadingData, setLoadingData] = useState(true);
-  const [eliteTalent, setEliteTalent] = useState<any[]>([]);
-  const [topComponents, setTopComponents] = useState<any[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [loadingContributors, setLoadingContributors] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const [assetsError, setAssetsError] = useState<string | null>(null);
+  const [contributorsError, setContributorsError] = useState<string | null>(null);
+
+  const [featuredServices, setFeaturedServices] = useState<ServiceCardData[]>([]);
+  const [topAssets, setTopAssets] = useState<any[]>([]);
   const [topContributors, setTopContributors] = useState<any[]>([]);
 
-  // --- NEW: FETCH PRODUCTION DATA ---
   useEffect(() => {
     async function fetchPlatformData() {
-      try {
-        // 1. Fetch Elite Talent (Top 4 verified builders)
-        const { data: talentData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'builder')
-          .eq('is_verified', true) // Assuming elite talent must be verified
-          .limit(4);
-        
-        if (talentData) setEliteTalent(talentData);
+      // Fetch services
+      const servicesPromise = supabase
+        .from('services')
+        .select(`
+          id, builder_id, title, short_description, category, ai_skills, cover_image_url,
+          delivery_time_days, starting_price_usd, rating_avg, review_count, order_count, created_at,
+          builder:profiles_public!builder_id(
+            id, full_name, headline, avatar_url, banner_url, tech_stack,
+            average_rating, review_count, average_response_hours,
+            completed_projects, is_top_expert, is_verified
+          )
+        `)
+        .eq('status', 'published')
+        .order('order_count', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(4);
 
-        // 2. Fetch Top Components (Top 5 by sales volume)
-        const { data: componentData } = await supabase
-          .from('components')
-          .select('*')
-          .order('sales_count', { ascending: false })
-          .limit(5);
+      // Fetch assets (components)
+      const assetsPromise = supabase
+        .from('components')
+        .select('*, builder:profiles_public!builder_id(full_name)')
+        .eq('status', 'published')
+        .order('sales_count', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(5);
 
-        if (componentData) setTopComponents(componentData);
+      const contributorsPromise = fetchArenaBuilders(supabase, 5).then((ranked) => ({
+        data: ranked.map((builder) => ({ ...builder, arena_rank: builder.rank })),
+        error: null,
+      })).catch((error) => ({
+        data: null,
+        error,
+      }));
 
-        // 3. Fetch The Arena Leaders (Top 5 by rank)
-        const { data: arenaData } = await supabase
-          .from('profiles')
-          .select('id, full_name, headline, avatar_url, arena_rank')
-          .eq('role', 'builder')
-          .order('arena_rank', { ascending: true })
-          .limit(5);
+      // Use Promise.allSettled to handle failures independently
+      const [servicesResult, assetsResult, contributorsResult] = await Promise.allSettled([
+        servicesPromise,
+        assetsPromise,
+        contributorsPromise,
+      ]);
 
-        if (arenaData) setTopContributors(arenaData);
+      // Handle services result
+      if (servicesResult.status === 'fulfilled') {
+        const { data: servicesData, error: servicesErr } = servicesResult.value;
+        if (servicesErr) {
+          console.error('Error fetching services:', servicesErr);
+          setServicesError('Unable to load services.');
+        } else if (servicesData) {
+          const enrichedServices: ServiceCardData[] = servicesData.map((s: any) => {
+            const b = s.builder || {};
+            const completedCount = b.completed_projects ?? 0;
+            const responseHours = b.average_response_hours;
+            const responseLabel = responseHours != null && responseHours <= 1
+              ? '< 1 hr'
+              : responseHours != null && responseHours <= 2
+                ? '< 2 hrs'
+                : '< 4 hrs';
 
-      } catch (error) {
-        console.error("Error syncing platform data:", error);
-      } finally {
-        setLoadingData(false);
+            return {
+              service_id: s.id,
+              builder_id: s.builder_id,
+              full_name: b.full_name,
+              headline: b.headline,
+              avatar_url: pickDisplayableImageUrl(b.avatar_url),
+              banner_url: pickDisplayableImageUrl(b.banner_url),
+              tech_stack: s.ai_skills?.length ? s.ai_skills : (b.tech_stack || []),
+              completed_projects: completedCount,
+              is_verified: b.is_verified || false,
+              is_top_expert: b.is_top_expert || false,
+              calculated_rating: Number(s.rating_avg) || Number(b.average_rating) || 0,
+              service_title: s.title,
+              service_description: s.short_description || '',
+              service_image: pickDisplayableImageUrl(s.cover_image_url, b.banner_url) || '',
+              delivery_time_days: s.delivery_time_days || 7,
+              review_count: s.review_count || b.review_count || 0,
+              response_time_label: responseLabel,
+              is_fast_response: responseHours != null && responseHours <= 2,
+              starting_price_usd: Number(s.starting_price_usd) || 0,
+              category: s.category,
+              created_at: s.created_at,
+            };
+          });
+          setFeaturedServices(enrichedServices);
+        }
+      } else {
+        console.error('Services fetch failed:', servicesResult.reason);
+        setServicesError('Unable to load services.');
       }
-    }
+      setLoadingServices(false);
 
+      // Handle assets result
+      if (assetsResult.status === 'fulfilled') {
+        const { data: assetsData, error: assetsErr } = assetsResult.value;
+        if (assetsErr) {
+          console.error('Error fetching assets:', assetsErr);
+          setAssetsError('Unable to load assets.');
+        } else if (assetsData) {
+          setTopAssets(assetsData);
+        }
+      } else {
+        console.error('Assets fetch failed:', assetsResult.reason);
+        setAssetsError('Unable to load assets.');
+      }
+      setLoadingAssets(false);
+
+      // Handle contributors result
+      if (contributorsResult.status === 'fulfilled') {
+        const { data: contributorsData, error: contributorsErr } = contributorsResult.value;
+        if (contributorsErr) {
+          console.error('Error fetching contributors:', contributorsErr);
+          setContributorsError('Unable to load contributors.');
+        } else if (contributorsData) {
+          setTopContributors(contributorsData);
+        }
+      } else {
+        console.error('Contributors fetch failed:', contributorsResult.reason);
+        setContributorsError('Unable to load contributors.');
+      }
+      setLoadingContributors(false);
+    }
     fetchPlatformData();
   }, []);
 
@@ -80,9 +175,7 @@ export default function LandingPage() {
       } else {
         throw new Error('AI API Timeout or Rate Limit');
       }
-
     } catch (error) {
-      console.warn("AI Routing failed. Triggering Keyword Failsafe...");
       const componentKeywords = ['bot', 'app', 'script', 'prompt', 'code', 'pipeline', 'tool', 'api', 'software', 'model', 'architecture', 'database'];
       const isSeekingComponent = componentKeywords.some(keyword => queryLower.includes(keyword));
       targetTab = isSeekingComponent ? 'components' : 'experts';
@@ -93,14 +186,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center relative overflow-hidden font-sans">
-      
-      <div className="absolute inset-0 z-0 h-[600px] w-full bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-40 pointer-events-none"></div>
-      
-      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 to-slate-50 pointer-events-none -z-10"></div>
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
-      <div className="absolute top-[10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
 
-      <section className="w-full max-w-6xl mx-auto px-6 pt-16 md:pt-20 pb-20 flex flex-col items-center text-center relative z-10">
+      <div className="absolute inset-0 z-0 h-[600px] w-full bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-40 pointer-events-none"></div>
+      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 to-slate-50 pointer-events-none -z-10"></div>
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+      <div className="absolute top-[10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
+      <main className="w-full max-w-6xl mx-auto px-6 pt-16 md:pt-20 pb-20 flex flex-col items-center text-center relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-black uppercase tracking-widest mb-8 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
           Zelance Network v1.0 Live
@@ -130,6 +222,7 @@ export default function LandingPage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               disabled={isSearching}
+              aria-label="Search Talent or Components"
               placeholder="Try searching 'AI Agent', 'Custom LLM', or 'AI Automation'..." 
               className="flex-1 bg-transparent border-none text-slate-900 font-medium text-lg px-2 py-4 outline-none placeholder:text-slate-400 disabled:opacity-50" 
             />
@@ -142,107 +235,66 @@ export default function LandingPage() {
               {isSearching ? 'Analyzing Intent...' : 'Search'}
             </button>
           </form>
-
         </div>
-      </section>
+      </main>
 
-      {loadingData ? (
-        <div className="w-full py-20 flex flex-col items-center justify-center relative z-10">
-           <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Global Mesh...</p>
-        </div>
-      ) : (
-        <>
-          {/* ELITE TALENT SECTION */}
-          <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
-            <div className="flex justify-between items-end mb-10">
-              <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Available Elite Talent</h2>
-                <p className="text-slate-500 font-medium">Ranked by Arena performance and Escrow history.</p>
+      <div className="w-full">
+        {/* FEATURED AI SERVICES SECTION */}
+        <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Services</h2>
+              <p className="text-slate-500 font-medium">Top services by completed orders and recent listings.</p>
+            </div>
+            <Link href="/buyer/discover?tab=experts" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Services →</Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            {loadingServices ? (
+              [...Array(4)].map((_, i) => <ServiceCardSkeleton key={i} index={i} />)
+            ) : servicesError ? (
+              <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                {servicesError}
               </div>
-              <Link href="/buyer/discover?tab=experts" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Builders →</Link>
-            </div>
+            ) : featuredServices.length === 0 ? (
+              <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                No services available yet.
+              </div>
+            ) : (
+              featuredServices.map((service) => (
+                <ServiceCard key={service.service_id} service={service} />
+              ))
+            )}
+          </div>
+        </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {eliteTalent.length === 0 ? (
-                <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
-                  No verified builders available yet.
-                </div>
-              ) : (
-                eliteTalent.map((talent) => (
-                  <div key={talent.id} className="bg-white border border-slate-200 rounded-3xl p-6 hover:-translate-y-2 hover:shadow-xl transition-all duration-300 group relative flex flex-col">
-                    <div className="absolute top-6 right-6">
-                      <span className="flex w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
-                    </div>
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center mb-6 border border-blue-200/50 group-hover:scale-110 transition-transform duration-300 overflow-hidden">
-                      {talent.avatar_url ? (
-                        <img src={talent.avatar_url} alt={talent.full_name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xl font-black text-blue-600">{talent.full_name?.charAt(0) || 'E'}</span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight mb-1">{talent.full_name}</h3>
-                    <p className="text-sm font-medium text-slate-500 mb-4 line-clamp-2">{talent.headline}</p>
-                    
-                    {/* Render first tech stack tag if available */}
-                    {talent.tech_stack && talent.tech_stack.length > 0 && (
-                      <span className="self-start inline-block bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg mb-6 truncate max-w-full">
-                        {talent.tech_stack[0]}
-                      </span>
-                    )}
-
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
-                      <span className="text-sm font-black text-slate-900">${talent.hourly_rate_usd || 50}/hr</span>
-                      <Link href={`/profile/${talent.id}`} className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">View Profile →</Link>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          {/* COMPONENT EXCHANGE SECTION */}
+          {/* AI ASSETS SECTION */}
           <section className="w-full max-w-7xl mx-auto px-6 py-10 mb-20 relative z-10">
             <div className="mb-16">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 px-2">
                 <div>
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Component Exchange</h3>
-                  <p className="text-slate-500 font-medium text-sm">Top purchased production-ready AI assets accelerating development today.</p>
+                  <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">AI Assets</h3>
+                  <p className="text-slate-500 font-medium text-sm">Reusable AI assets: Prompt Packs, AI Agents, Workflows, Templates, APIs, MCP Servers, and more.</p>
                 </div>
                 <Link href="/buyer/discover?tab=components" className="text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors flex items-center gap-1">
-                  View Exchange <span className="text-lg leading-none">→</span>
+                  View All Assets <span className="text-lg leading-none">→</span>
                 </Link>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                {topComponents.length === 0 ? (
+                {loadingAssets ? (
+                  [...Array(5)].map((_, i) => <AssetCardSkeleton key={i} index={i} />)
+                ) : assetsError ? (
                   <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
-                    No components deployed to the exchange yet.
+                    {assetsError}
+                  </div>
+                ) : topAssets.length === 0 ? (
+                  <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                    No assets available yet.
                   </div>
                 ) : (
-                  topComponents.map(comp => (
-                    <div key={comp.id} onClick={() => router.push(`/buyer/components/${comp.id}`)} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 transition-all duration-300 group flex flex-col cursor-pointer">
-                      <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
-                          <img src={comp.thumbnail_url || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=400&h=250'} alt={comp.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      </div>
-                      <div className="p-5 flex flex-col flex-1">
-                          <h4 className="text-sm font-black text-slate-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">{comp.title}</h4>
-                          <div className="flex justify-between items-end mt-auto pt-4">
-                            <div>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Price</p>
-                              {comp.price_usd === 0 ? (
-                                <p className="text-base font-black text-green-600">FREE</p>
-                              ) : (
-                                <p className="text-base font-black text-slate-900">${comp.price_usd}</p>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Sales</p>
-                              <p className="text-xs font-black text-blue-600">{comp.sales_count || 0}</p>
-                            </div>
-                          </div>
-                      </div>
-                    </div>
+                  topAssets.map((asset, index) => (
+                    <AssetCard key={asset.id} asset={asset} index={index} />
                   ))
                 )}
               </div>
@@ -261,24 +313,37 @@ export default function LandingPage() {
                   <h3 className="text-3xl font-black text-white tracking-tight mb-2">The Arena</h3>
                   <p className="text-slate-400 font-medium text-sm">Top contributors currently defining the global mesh architecture.</p>
                 </div>
-                <Link href="/builder/arena" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">
+                <Link href="/arena" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">
                   View Leaderboard
                 </Link>
               </div>
 
               <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {topContributors.length === 0 ? (
+                {loadingContributors ? (
+                  [...Array(5)].map((_, i) => (
+                    <div key={i} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 flex flex-col items-center text-center animate-pulse" aria-hidden="true">
+                      <div className="w-16 h-16 rounded-full bg-slate-700 mb-4 border-2 border-slate-600" />
+                      <div className="h-2.5 w-12 rounded-full bg-slate-600 mb-1" />
+                      <div className="h-5 w-24 rounded-md bg-slate-600 mb-1" />
+                      <div className="h-2.5 w-28 rounded-md bg-slate-700" />
+                    </div>
+                  ))
+                ) : contributorsError ? (
+                  <div className="col-span-full py-8 text-center text-slate-500 text-sm font-bold border border-slate-800 rounded-3xl bg-slate-800/30">
+                    {contributorsError}
+                  </div>
+                ) : topContributors.length === 0 ? (
                   <div className="col-span-full py-8 text-center text-slate-500 text-sm font-bold border border-slate-800 rounded-3xl bg-slate-800/30">
                     Arena rankings are currently calculating.
                   </div>
                 ) : (
                   topContributors.map((builder, index) => (
                     <div key={builder.id} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800 transition-colors flex flex-col items-center text-center group">
-                      <div className="w-16 h-16 rounded-full overflow-hidden mb-4 border-2 border-slate-600 group-hover:border-amber-500 transition-colors">
+                      <div className="w-16 h-16 rounded-full overflow-hidden mb-4 border-2 border-slate-600 group-hover:border-amber-500 transition-colors relative">
                         {builder.avatar_url ? (
-                          <img src={builder.avatar_url} className="w-full h-full object-cover" alt={builder.full_name} />
+                          <Image src={builder.avatar_url} fill sizes="64px" className="object-cover" alt={builder.full_name} />
                         ) : (
-                          <div className="w-full h-full bg-slate-700 flex items-center justify-center text-xl font-black text-slate-300">
+                          <div className="w-full h-full bg-slate-700 flex items-center justify-center text-xl font-black text-slate-300 relative z-10">
                             {builder.full_name?.charAt(0) || 'B'}
                           </div>
                         )}
@@ -287,7 +352,8 @@ export default function LandingPage() {
                       <Link href={`/profile/${builder.id}`} className="text-white font-black text-lg mb-1 hover:text-amber-500 transition-colors">
                         {builder.full_name}
                       </Link>
-                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4 truncate w-full">{builder.headline || 'Zelance Builder'}</p>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1 truncate w-full">{builder.headline || 'Zelance Builder'}</p>
+                      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{builder.components_count} Published</p>
                     </div>
                   ))
                 )}
@@ -321,8 +387,7 @@ export default function LandingPage() {
             </div>
 
           </section>
-        </>
-      )}
-    </div>
+        </div>
+      </div>
   );
 }

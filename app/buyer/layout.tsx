@@ -5,8 +5,7 @@ export default function BuyerLayout({
 }) {
   return (
     <div className="w-full min-h-screen bg-slate-50 flex flex-col">
-      {/* The global Navbar from app/layout.tsx handles top navigation.
-          This layout simply acts as a clean wrapper for buyer pages. */}
+      {/* Navbar is rendered globally in app/layout.tsx */}
       <main className="flex-1 w-full">
         {children}
       </main>

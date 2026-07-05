@@ -39,7 +39,7 @@ export default function TrackerEngine({ collabId, builderId }: TrackerProps) {
       }
     }
     // Web fallback mockup simulation for dev environments
-    if (cmd === 'capture_desktop_screen') return `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800`;
+    if (cmd === 'capture_desktop_screen') return null;
     return { success: true };
   };
 

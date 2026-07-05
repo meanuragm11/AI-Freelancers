@@ -20,55 +20,76 @@ function AuthContent() {
   useEffect(() => {
     const urlRole = searchParams.get('role');
     if (urlRole === 'builder' || urlRole === 'buyer') setRole(urlRole);
+
+    const error = searchParams.get('error');
+    if (error === 'email_exists') {
+      alert('This email is already registered with a password. Please login with your password instead of using Google.');
+    }
   }, [searchParams]);
+
+  // --- SESSION CHECK ON MOUNT ---
+  // This properly handles the code that was crashing your build.
+  // It securely checks if the user is already logged in when they hit this page.
+  useEffect(() => {
+    async function checkExistingSession() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_freelancer')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.is_freelancer) {
+          router.push('/builder/dashboard');
+        } else {
+          router.push('/buyer/dashboard');
+        }
+      }
+    }
+    checkExistingSession();
+  }, [router]);
 
   // --- GOOGLE SINGLE SIGN-ON ---
   const handleGoogleAuth = async () => {
     setGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          // We attach the role to the callback URL so the backend knows what profile to create
-          redirectTo: `${window.location.origin}/auth/callback?role=${role}`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+      // Check if user is already logged in (to link identities)
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // User is already logged in, link Google identity to existing account
+        const { error: linkError } = await supabase.auth.linkIdentity({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback?role=${role}`,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
           },
-        }
-      });
-      if (error) throw error;
+        });
+        if (linkError) throw linkError;
+      } else {
+        // User not logged in, check if email already exists with email/password
+        // We can't check email before OAuth, so we'll handle this in the callback
+        // Proceed with normal Google sign-in
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback?role=${role}`,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+          },
+        });
+        if (error) throw error;
+      }
     } catch (error: any) {
       alert("Google Auth Error: " + error.message);
       setGoogleLoading(false);
     }
-  };
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (data.user) {
-    // Fetch their profile to check their role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_freelancer')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profile?.is_freelancer) {
-      router.push('/builder/dashboard'); // Send experts to their dashboard
-    } else {
-      router.push('/buyer/dashboard');   // Send clients to the Buyer OS
-    }
-  }
-
-  // --- STRICT GMAIL VALIDATION (For Manual Entry) ---
-  const validateStrictGmail = (email: string) => {
-    const lowerEmail = email.toLowerCase().trim();
-    if (!lowerEmail.endsWith('@gmail.com')) return "Security Policy: Only @gmail.com addresses are permitted.";
-    if (lowerEmail.includes('+')) return "Security Policy: Gmail alias addresses (+) are strictly prohibited.";
-    const localPart = lowerEmail.split('@')[0];
-    if ((localPart.match(/\./g) || []).length > 2) return "Security Policy: Suspicious email format detected.";
-    return null;
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -76,19 +97,36 @@ function AuthContent() {
     setLoading(true);
 
     try {
-      const validationError = validateStrictGmail(formData.email);
-      if (validationError) throw new Error(validationError);
+      const email = formData.email.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error('Enter a valid email address.');
+      }
 
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
         });
+        
         if (error) {
           if (error.message.includes("Email not confirmed")) throw new Error("Please verify your email inbox first.");
           throw error;
         }
-        router.push(role === 'builder' ? '/builder/dashboard' : '/buyer/discover');
+
+        // Dynamically route based on actual DB profile
+        if (authData.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_freelancer')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (profile?.is_freelancer) {
+            router.push('/builder/dashboard');
+          } else {
+            router.push('/buyer/discover');
+          }
+        }
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: formData.email.trim(),
@@ -98,13 +136,14 @@ function AuthContent() {
             emailRedirectTo: `${window.location.origin}/auth/callback?role=${role}`
           }
         });
+
         if (error) throw error;
 
-        // Profiles for email signups are created here. Google profiles are created in the callback route.
         if (data.user) {
-          await supabase.from('profiles').upsert([
-            { id: data.user.id, full_name: formData.fullName, role: role }
+          const { error: profileError } = await supabase.from('profiles').upsert([
+            { id: data.user.id, full_name: formData.fullName, role: role, is_freelancer: role === 'builder' }
           ]);
+          if (profileError) console.error('Profile sync error:', profileError.message);
         }
         setVerificationSent(true);
       }
@@ -178,7 +217,7 @@ function AuthContent() {
             </div>
           )}
           <div>
-            <input required type="email" placeholder="name@gmail.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />
+            <input required type="email" placeholder="you@company.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />
           </div>
           <div>
             <input required type="password" placeholder="Password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-all" />

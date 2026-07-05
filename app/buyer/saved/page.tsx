@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
@@ -23,7 +23,7 @@ export default function SavedExperts() {
           id,
           collection_name,
           saved_at,
-          profiles!expert_id (id, full_name, avatar_url, headline, base_price_usd, reputation_score)
+          profiles_public!expert_id (id, full_name, avatar_url, headline, base_price_usd, reputation_score)
         `)
         .eq('buyer_id', user.id)
         .order('saved_at', { ascending: false });
@@ -34,12 +34,21 @@ export default function SavedExperts() {
     fetchSaved();
   }, [router]);
 
-  const collections = ['All', ...Array.from(new Set(savedExperts.map(s => s.collection_name).filter(Boolean)))];
-  const filteredExperts = activeCollection === 'All' ? savedExperts : savedExperts.filter(s => s.collection_name === activeCollection);
+  // Performance: Memoize collection filtering
+  const collections = useMemo(() => ['All', ...Array.from(new Set(savedExperts.map(s => s.collection_name).filter(Boolean)))], [savedExperts]);
+  const filteredExperts = useMemo(() => activeCollection === 'All' ? savedExperts : savedExperts.filter(s => s.collection_name === activeCollection), [activeCollection, savedExperts]);
 
   const removeExpert = async (id: string) => {
-    setSavedExperts(prev => prev.filter(s => s.id !== id)); // Optimistic UI
-    await supabase.from('saved_experts').delete().eq('id', id);
+    // Optimistic UI Removal
+    const previousState = [...savedExperts];
+    setSavedExperts(prev => prev.filter(s => s.id !== id)); 
+    
+    const { error } = await supabase.from('saved_experts').delete().eq('id', id);
+    if (error) {
+      // Revert if database fails
+      setSavedExperts(previousState);
+      alert("Failed to remove bookmark. Check connection.");
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading Rolodex...</div>;
@@ -85,13 +94,17 @@ export default function SavedExperts() {
                 return (
                   <div key={saved.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:border-slate-300 hover:-translate-y-1 transition-all duration-300 flex flex-col relative group">
                     
-                    <button onClick={() => removeExpert(saved.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 bg-white p-1 rounded-full shadow-sm border border-slate-100" title="Remove Bookmark">
+                    <button aria-label="Remove Bookmark" onClick={() => removeExpert(saved.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 bg-white p-1 rounded-full shadow-sm border border-slate-100" title="Remove Bookmark">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
                     </button>
 
                     <div className="flex flex-col items-center text-center mb-6">
-                      <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden relative mb-3 border-4 border-white shadow-sm">
-                        <Image src={expert.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200&h=200'} fill sizes="80px" className="object-cover" alt={expert.full_name} />
+                      <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden relative mb-3 border-4 border-white shadow-sm flex items-center justify-center">
+                        {expert.avatar_url ? (
+                          <Image priority src={expert.avatar_url} fill sizes="80px" className="object-cover" alt={expert.full_name} />
+                        ) : (
+                          <span className="text-slate-400 text-xl font-bold">{expert.full_name?.charAt(0) || '?'}</span>
+                        )}
                       </div>
                       <h3 className="text-base font-black text-slate-900 leading-tight cursor-pointer hover:text-blue-600" onClick={() => router.push(`/profile/${expert.id}`)}>{expert.full_name}</h3>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 line-clamp-1">{expert.headline}</p>
@@ -111,8 +124,11 @@ export default function SavedExperts() {
                     </div>
 
                     <div className="mt-auto">
-                      <button onClick={() => router.push(`/buyer/collabs/new?builderId=${expert.id}`)} className="w-full bg-slate-900 hover:bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
-                        Hire Expert
+                      <button onClick={() => router.push(`/profile/${expert.id}#services`)} className="w-full bg-slate-900 hover:bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
+                        View Services
+                      </button>
+                      <button onClick={() => router.push(`/buyer/collabs/new?builderId=${expert.id}`)} className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
+                        Request Custom Project
                       </button>
                     </div>
                   </div>

@@ -4,14 +4,6 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'via.placeholder.com',
-      },
-      {
-        protocol: 'https',
         hostname: '**.supabase.co', // Whitelists your Supabase storage for real user avatars
       }
     ],

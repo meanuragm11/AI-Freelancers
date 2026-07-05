@@ -1,10 +1,130 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from 'next/image';
+
+type ProjectStatusLabel = 'Active' | 'Pending' | 'Completed' | 'Disputed' | 'Cancelled';
+
+type BuyerServiceCard = {
+  id: string;
+  serviceId: string;
+  serviceTitle: string;
+  serviceThumbnail: string | null;
+  freelancerName: string;
+  freelancerAvatar: string | null;
+  status: ProjectStatusLabel;
+  milestoneProgress: string;
+  escrowLocked: number;
+  nextDueDate: string | null;
+  lastActivity: Date;
+  completionPercentage: number;
+};
+
+type DashboardUser = {
+  id: string;
+};
+
+type DashboardProfile = {
+  full_name?: string | null;
+  avatar_url?: string | null;
+  headline?: string | null;
+};
+
+type ServiceRelation = {
+  id: string;
+  title?: string | null;
+  cover_image_url?: string | null;
+};
+
+type CollabRow = {
+  id: string;
+  buyer_id?: string | null;
+  builder_id?: string | null;
+  title?: string | null;
+  status?: string | null;
+  service_id?: string | null;
+  escrow_amount_usd?: number | string | null;
+  completion_percentage?: number | string | null;
+  created_at?: string | null;
+  profiles?: DashboardProfile | null;
+  service?: ServiceRelation | null;
+};
+
+type RecentActivity = {
+  id: string;
+  type: 'delivered' | 'funded' | 'started';
+  title?: string | null;
+  expert?: string | null;
+  amount: number;
+  date: Date;
+};
+
+type MilestoneSummary = {
+  id: string;
+  collab_id: string;
+  title?: string | null;
+  status?: string | null;
+  amount_usd?: number | string | null;
+  due_date?: string | null;
+  created_at?: string | null;
+};
+
+const ACTIVE_COLLAB_STATUSES = new Set(['funded', 'in_progress', 'submitted', 'active']);
+const PENDING_COLLAB_STATUSES = new Set(['pending', 'pending_funding', 'draft']);
+const COMPLETED_COLLAB_STATUSES = new Set(['completed', 'released']);
+const CANCELLED_COLLAB_STATUSES = new Set(['cancelled', 'canceled', 'rejected']);
+const LOCKED_MILESTONE_STATUSES = new Set(['funded', 'in_progress', 'submitted']);
+const COMPLETED_MILESTONE_STATUSES = new Set(['approved', 'released', 'completed']);
+const UPCOMING_MILESTONE_STATUSES = new Set(['draft', 'funded', 'in_progress', 'submitted']);
+
+function formatCurrency(amount: number) {
+  return `$${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function formatDate(dateValue: string | null) {
+  return dateValue ? new Date(dateValue).toLocaleDateString() : 'No due date';
+}
+
+function formatActivity(date: Date) {
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function mapProjectStatus(status?: string | null): ProjectStatusLabel {
+  const normalized = (status || '').toLowerCase();
+  if (normalized === 'disputed') return 'Disputed';
+  if (COMPLETED_COLLAB_STATUSES.has(normalized)) return 'Completed';
+  if (CANCELLED_COLLAB_STATUSES.has(normalized)) return 'Cancelled';
+  if (ACTIVE_COLLAB_STATUSES.has(normalized)) return 'Active';
+  if (PENDING_COLLAB_STATUSES.has(normalized)) return 'Pending';
+  return 'Pending';
+}
+
+function getStatusClass(status: ProjectStatusLabel) {
+  switch (status) {
+    case 'Active':
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'Pending':
+      return 'bg-amber-100 text-amber-700 border-amber-200';
+    case 'Completed':
+      return 'bg-green-100 text-green-700 border-green-200';
+    case 'Disputed':
+      return 'bg-rose-100 text-rose-700 border-rose-200';
+    case 'Cancelled':
+      return 'bg-slate-100 text-slate-600 border-slate-200';
+  }
+}
+
+function toDate(value?: string | null) {
+  return value ? new Date(value) : null;
+}
 
 // --- ICONS ---
 const Icons = {
@@ -23,89 +143,66 @@ export default function BuyerDashboard() {
   const [loading, setLoading] = useState(true);
   
   // --- MASTER STATE ---
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<DashboardUser | null>(null);
+  const [profile, setProfile] = useState<DashboardProfile | null>(null);
   
   // --- KPI & DATA STATES ---
   const [stats, setStats] = useState({ activeProjects: 0, pendingMilestones: 0, escrowBalance: 0, totalSpent: 0, purchasedAssets: 0, savedExperts: 0 });
-  const [activeProjects, setActiveProjects] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [myServices, setMyServices] = useState<BuyerServiceCard[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
-  // --- 1. SECURE INITIALIZATION ---
-  useEffect(() => {
-    async function initializeDashboard() {
+  const loadDashboard = useCallback(async (showInitialLoading = false) => {
+      if (showInitialLoading) setLoading(true);
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) { router.push('/auth'); return; }
       setUser(currentUser);
 
       try {
-        // Fetch Profile
-        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-        if (profileData) setProfile(profileData);
+        const response = await fetch('/api/buyer/dashboard');
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Dashboard load failed');
 
-        // Fetch Collabs (Projects)
-        const { data: collabs } = await supabase
-          .from('collabs')
-          .select('*, profiles!builder_id(full_name, avatar_url, headline)')
-          .eq('buyer_id', currentUser.id)
-          .order('created_at', { ascending: false });
-
-        // Fetch Component Purchases (Library)
-        const { data: purchases } = await supabase.from('library').select('id').eq('user_id', currentUser.id);
-
-        if (collabs) {
-          let activeCount = 0;
-          let pendingCount = 0;
-          let escrowLocked = 0;
-          let totalSpent = 0;
-
-          const activeList: any[] = [];
-          const activityTimeline: any[] = [];
-
-          collabs.forEach((c: any) => {
-            // Stats Aggregation
-            if (c.status === 'in_progress' || c.status === 'funded') {
-              activeCount++;
-              escrowLocked += (c.escrow_amount_usd || 0);
-              activeList.push(c);
-            }
-            if (c.status === 'completed') {
-              totalSpent += (c.escrow_amount_usd || 0);
-            }
-
-            // Generate Timeline Events (Mocked structure for v1)
-            activityTimeline.push({
-              id: `act_${c.id}`,
-              type: c.status === 'completed' ? 'delivered' : c.status === 'funded' ? 'funded' : 'started',
-              title: c.title,
-              expert: c.profiles?.full_name,
-              amount: c.escrow_amount_usd,
-              date: new Date(c.created_at)
-            });
-          });
-
-          setActiveProjects(activeList.slice(0, 4)); // Show top 4 active
-          
-          setRecentActivity(activityTimeline.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5));
-
-          setStats({
-            activeProjects: activeCount,
-            pendingMilestones: pendingCount, // Requires new milestones table mapping
-            escrowBalance: escrowLocked,
-            totalSpent: totalSpent,
-            purchasedAssets: purchases?.length || 0,
-            savedExperts: 0 // Requires saved_experts table
-          });
-        }
+        setProfile(result.profile);
+        setStats(result.stats);
+        setMyServices((result.services || []).map((service: BuyerServiceCard & { lastActivity: string }) => ({
+          ...service,
+          lastActivity: new Date(service.lastActivity || Date.now()),
+        })));
+        setRecentActivity((result.recentActivity || []).map((activity: RecentActivity & { date: string }) => ({
+          ...activity,
+          date: new Date(activity.date || Date.now()),
+        })));
 
       } catch (err) {
         console.error("Dashboard Load Error:", err);
       } finally {
         setLoading(false);
       }
-    }
-    initializeDashboard();
   }, [router]);
+
+  // --- 1. SECURE INITIALIZATION ---
+  useEffect(() => {
+    void Promise.resolve().then(() => loadDashboard(true));
+  }, [loadDashboard]);
+
+  // --- 2. REALTIME SERVICE UPDATES ---
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const refresh = () => {
+      loadDashboard(false);
+    };
+
+    const channel = supabase
+      .channel(`buyer_dashboard_services_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'collabs', filter: `buyer_id=eq.${user.id}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, refresh)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [loadDashboard, user?.id]);
 
   if (loading) {
     return (
@@ -124,10 +221,14 @@ export default function BuyerDashboard() {
         
         {/* User Identity Block */}
         <div className="p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Operating Client</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Client</p>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0">
-              <Image src={profile?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100'} fill sizes="40px" className="object-cover" alt="User" />
+            <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0 flex items-center justify-center">
+              {profile?.avatar_url ? (
+                <Image src={profile.avatar_url} fill sizes="40px" className="object-cover" alt="User" priority />
+              ) : (
+                <span className="text-slate-400 text-sm font-bold">{profile?.full_name?.charAt(0) || '?'}</span>
+              )}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-black text-white truncate">{profile?.full_name || 'Client'}</p>
@@ -146,20 +247,20 @@ export default function BuyerDashboard() {
             {Icons.Dashboard} Dashboard
           </Link>
           <Link href="/buyer/projects" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
-            {Icons.Projects} My Projects
+            {Icons.Projects} My Services
           </Link>
           <Link href="/buyer/messages" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
-            {Icons.Messages} Messages <span className="ml-auto bg-blue-500 text-white text-[9px] px-1.5 py-0.5 rounded-md">2</span>
+            {Icons.Messages} Messages
           </Link>
 
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Finances</p>
-          <Link href="/buyer/payments" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+          <Link href="/buyer/billing" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
             {Icons.Escrow} Escrow Ledger
           </Link>
 
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Discover</p>
           <Link href="/buyer/discover" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
-            {Icons.Hire} Hire AI Expert
+            {Icons.Hire} Explore AI Services
           </Link>
           <Link href="/buyer/library" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
             {Icons.Assets} Purchased Assets
@@ -191,111 +292,140 @@ export default function BuyerDashboard() {
           </div>
 
           {/* --- KPI DASHBOARD --- */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-10">
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Active Projects</p>
               <p className="text-3xl font-black text-blue-600">{stats.activeProjects}</p>
             </div>
-
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Pending Milestones</p>
+              <p className="text-3xl font-black text-amber-600">{stats.pendingMilestones}</p>
+            </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Escrow Locked</p>
               <p className="text-3xl font-black text-slate-900">${stats.escrowBalance.toLocaleString()}</p>
             </div>
-
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-green-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Spent</p>
               <p className="text-3xl font-black text-green-600">${stats.totalSpent.toLocaleString()}</p>
             </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-300" onClick={() => router.push('/buyer/library')}>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-300" onClick={() => router.push('/buyer/library')} role="button" tabIndex={0}>
               <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Purchased Assets</p>
               <p className="text-3xl font-black text-slate-900">{stats.purchasedAssets}</p>
             </div>
-
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-300" onClick={() => router.push('/buyer/saved')} role="button" tabIndex={0}>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Saved Experts</p>
+              <p className="text-3xl font-black text-indigo-600">{stats.savedExperts}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             
-            {/* --- MAIN COLUMN: CONTINUE WORKING --- */}
+            {/* --- MAIN COLUMN: MY SERVICES --- */}
             <div className="xl:col-span-2 space-y-6">
               <div className="flex justify-between items-end mb-4">
                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Continue Working
+                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg> Active Projects
                 </h2>
                 <Link href="/buyer/projects" className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:text-blue-800">View All Projects</Link>
               </div>
 
-              {activeProjects.length === 0 ? (
+              {myServices.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm flex flex-col items-center">
                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border-4 border-slate-100">
                     <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                   </div>
-                  <h3 className="text-lg font-black text-slate-900 mb-2">No active projects.</h3>
-                  <p className="text-sm font-medium text-slate-500 mb-6 max-w-sm">Ready to build? Discover verified AI experts and initiate your first contract.</p>
+                  <h3 className="text-lg font-black text-slate-900 mb-2">No active projects yet</h3>
+                  <p className="text-sm font-medium text-slate-500 mb-6 max-w-sm">Fund a service or start a custom project to see active work here.</p>
                   <button onClick={() => router.push('/buyer/discover')} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors">
-                    Find an Expert
+                    Explore AI Services
                   </button>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {activeProjects.map(project => (
-                    <div key={project.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all group flex flex-col md:flex-row gap-6">
-                      
-                      {/* Expert Identity */}
-                      <div className="flex items-center md:items-start gap-4 md:w-1/4 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 pb-4 md:pb-0 md:pr-6">
-                        <div className="w-12 h-12 rounded-full overflow-hidden relative shrink-0 bg-slate-100">
-                          <Image src={project.profiles?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100&h=100'} fill sizes="48px" className="object-cover" alt={project.profiles?.full_name || 'Expert'} />
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Freelancer</p>
-                          <p className="text-sm font-black text-slate-900 truncate">{project.profiles?.full_name || 'Verified Expert'}</p>
-                          <p className="text-[10px] font-bold text-slate-500 truncate mt-0.5">{project.profiles?.headline || 'AI Developer'}</p>
+                <div className="flex flex-col gap-5 md:flex-row md:overflow-x-auto md:pb-4 custom-scrollbar">
+                  {myServices.map(service => (
+                    <div key={service.id} className="bg-white border border-slate-200 rounded-3xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all group overflow-hidden md:min-w-[380px] md:max-w-[420px]">
+                      <div className="relative h-40 bg-slate-100">
+                        {service.serviceThumbnail ? (
+                          <Image src={service.serviceThumbnail} fill sizes="(max-width: 768px) 100vw, 420px" className="object-cover" alt={service.serviceTitle} />
+                        ) : (
+                          <div className="h-full w-full bg-gradient-to-br from-blue-100 via-white to-slate-100 flex items-center justify-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI Service</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent"></div>
+                        <span className={`absolute top-4 right-4 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${getStatusClass(service.status)}`}>
+                          {service.status}
+                        </span>
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <h4 className="text-lg font-black text-white line-clamp-2 group-hover:text-blue-100 transition-colors">{service.serviceTitle}</h4>
                         </div>
                       </div>
 
-                      {/* Project Meta */}
-                      <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="text-lg font-black text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">{project.title}</h4>
-                          <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shrink-0 ml-4 ${
-                            project.status === 'funded' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
-                          }`}>
-                            {project.status === 'funded' ? 'Funded (Awaiting Start)' : 'In Progress'}
-                          </span>
+                      <div className="p-6">
+                        <div className="flex items-center gap-3 mb-5">
+                          <div className="w-11 h-11 rounded-full overflow-hidden relative shrink-0 bg-slate-100 flex items-center justify-center border border-slate-200">
+                            {service.freelancerAvatar ? (
+                              <Image src={service.freelancerAvatar} fill sizes="44px" className="object-cover" alt={service.freelancerName} />
+                            ) : (
+                              <span className="text-slate-400 text-sm font-bold">{service.freelancerName.charAt(0)}</span>
+                            )}
+                          </div>
+                          <div className="overflow-hidden">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Freelancer</p>
+                            <p className="text-sm font-black text-slate-900 truncate">{service.freelancerName}</p>
+                          </div>
                         </div>
 
-                        {/* Progress Bar (Mocked for V1 until Milestones table exists) */}
-                        <div className="mt-2 mb-4">
+                        <div className="mb-5">
                           <div className="flex justify-between items-end mb-1.5">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Milestone 1: Development</span>
-                            <span className="text-[10px] font-black text-slate-900">45%</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{service.milestoneProgress}</span>
+                            <span className="text-[10px] font-black text-slate-900">{service.completionPercentage}%</span>
                           </div>
                           <div className="w-full bg-slate-100 rounded-full h-1.5">
-                            <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '45%' }}></div>
+                            <div
+                              className="bg-blue-500 h-1.5 rounded-full transition-all"
+                              style={{ width: `${service.completionPercentage}%` }}
+                            />
                           </div>
                         </div>
 
-                        <div className="flex justify-between items-center mt-auto border-t border-slate-100 pt-4">
+                        <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-4 mb-5">
                           <div>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Escrow Locked</p>
-                            <p className="text-sm font-black text-slate-900">${project.escrow_amount_usd?.toLocaleString()}</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Escrow Locked</p>
+                            <p className="text-sm font-black text-slate-900">{formatCurrency(service.escrowLocked)}</p>
                           </div>
-                          <div className="flex gap-2">
-                            <button className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors hidden sm:block">
-                              Message
-                            </button>
-                            <button onClick={() => router.push(`/buyer/collabs/${project.id}`)} className="bg-slate-900 hover:bg-blue-600 text-white px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
-                              Open Workspace
-                            </button>
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Next Due</p>
+                            <p className="text-sm font-black text-slate-900">{formatDate(service.nextDueDate)}</p>
                           </div>
+                          <div className="col-span-2">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Last Activity</p>
+                            <p className="text-sm font-black text-slate-900">{formatActivity(service.lastActivity)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button onClick={() => router.push(`/collab/${service.id}`)} className="flex-1 bg-slate-900 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
+                            Open Workspace
+                          </button>
+                          {service.serviceId ? (
+                            <button onClick={() => router.push(`/service/${service.serviceId}`)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">
+                              View Services
+                            </button>
+                          ) : (
+                            <button disabled className="flex-1 bg-slate-50 text-slate-300 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed">
+                              View Services
+                            </button>
+                          )}
                         </div>
                       </div>
-
                     </div>
                   ))}
                 </div>
@@ -317,7 +447,6 @@ export default function BuyerDashboard() {
                   <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 pb-4">
                     {recentActivity.map((event, idx) => (
                       <div key={event.id} className="relative pl-6 animate-in slide-in-from-right-4 fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
-                        {/* Timeline Node */}
                         <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-white ${
                           event.type === 'delivered' ? 'bg-green-500' : event.type === 'funded' ? 'bg-amber-500' : 'bg-blue-500'
                         }`}></div>
@@ -344,28 +473,13 @@ export default function BuyerDashboard() {
                   </div>
                 )}
                 
-                {/* AI Insight Mini-Banner */}
-                <div className="mt-8 pt-6 border-t border-slate-100">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 relative overflow-hidden group cursor-pointer">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full group-hover:scale-125 transition-transform"></div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-800">AI Daily Summary</p>
-                    </div>
-                    <p className="text-xs font-medium text-slate-700 leading-relaxed">
-                      You have <strong>1 project</strong> awaiting review. Approving today keeps delivery schedules on track.
-                    </p>
-                  </div>
-                </div>
-
+                
               </div>
             </div>
 
           </div>
-
         </div>
       </main>
-
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 // Admin client required to bypass Row Level Security for financial ledgers
 const supabaseAdmin = createClient(
@@ -9,9 +11,39 @@ const supabaseAdmin = createClient(
 
 const FLAT_PLATFORM_FEE_USD = 5.00;
 
+async function getServerUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {},
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user;
+}
+
 export async function POST(req: Request) {
+  let collabIdForAlert: string | undefined;
+
   try {
     const { collabId, action } = await req.json();
+    collabIdForAlert = collabId;
+
+    const user = await getServerUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     if (!collabId || action !== 'release_escrow') {
       return NextResponse.json({ error: 'Invalid billing payload' }, { status: 400 });
@@ -26,6 +58,22 @@ export async function POST(req: Request) {
 
     if (fetchError || !collab) {
       throw new Error("Collab workspace not found or database error.");
+    }
+
+    if (collab.buyer_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { data: activeDispute, error: disputeError } = await supabaseAdmin
+      .from('disputes')
+      .select('id')
+      .eq('collab_id', collabId)
+      .in('status', ['waiting_for_freelancer', 'waiting_for_buyer', 'negotiation', 'under_review', 'arbitration_requested'])
+      .maybeSingle();
+
+    if (disputeError) throw disputeError;
+    if (activeDispute) {
+      return NextResponse.json({ error: 'Escrow release is paused while a dispute is active.' }, { status: 409 });
     }
 
     // Security Check: Ensure funds are actually locked and awaiting release
@@ -45,7 +93,7 @@ export async function POST(req: Request) {
     const invoiceNumber = `ZEL-INV-${Math.floor(100000 + Math.random() * 900000)}`;
 
     // 4. Create the Invoice Record in the Ledger
-    const { data: invoice, error: invoiceError } = await supabaseAdmin
+    const { error: invoiceError } = await supabaseAdmin
       .from('invoices')
       .insert([{
         collab_id: collab.id,
@@ -57,8 +105,6 @@ export async function POST(req: Request) {
         invoice_number: invoiceNumber,
         status: 'processing'
       }])
-      .select()
-      .single();
 
     if (invoiceError) throw invoiceError;
 
@@ -95,16 +141,17 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Billing Controller Error:", error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
     
     // Alert the Command Center of a financial routing failure
     await supabaseAdmin.from('system_alerts').insert([{
       alert_type: 'system_error',
       risk_level: 'critical',
-      message: `Billing Controller Failure on Collab ${req.body ? (req.body as any).collabId : 'unknown'}: ${error.message}`
+      message: `Billing Controller Failure on Collab ${collabIdForAlert || 'unknown'}: ${message}`
     }]);
 
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

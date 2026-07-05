@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MessagingInterface from '@/components/MessagingInterface';
 import Link from 'next/link';
 
-export default function BuyerMessages() {
+function BuyerMessagesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const conversationId = searchParams.get('conversation');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,8 +34,16 @@ export default function BuyerMessages() {
           </Link>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Secure Communications</h1>
         </div>
-        <MessagingInterface currentUser={currentUser} userRole="buyer" />
+        <MessagingInterface currentUser={currentUser} userRole="buyer" initialConversationId={conversationId} />
       </div>
     </div>
+  );
+}
+
+export default function BuyerMessages() {
+  return (
+    <Suspense fallback={null}>
+      <BuyerMessagesContent />
+    </Suspense>
   );
 }

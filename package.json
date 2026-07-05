@@ -11,15 +11,18 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@heroicons/react": "^2.2.0",
+    "@react-email/render": "^2.0.9",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
+    "crypto": "^1.0.1",
     "next": "16.2.7",
     "posthog-js": "^1.386.6",
     "razorpay": "^2.9.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "resend": "^6.16.0",
     "stripe": "^22.2.1"
   },
   "devDependencies": {
