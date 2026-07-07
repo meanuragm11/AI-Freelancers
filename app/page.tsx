@@ -223,7 +223,7 @@ export default function LandingPage() {
               onChange={(e) => setSearchInput(e.target.value)}
               disabled={isSearching}
               aria-label="Search Talent or Components"
-              placeholder="Try searching 'AI Agent', 'Custom LLM', or 'AI Automation'..." 
+              placeholder="Try searching 'AI Agent', 'AI Engineer', or 'AI Automation'..." 
               className="flex-1 bg-transparent border-none text-slate-900 font-medium text-lg px-2 py-4 outline-none placeholder:text-slate-400 disabled:opacity-50" 
             />
             
