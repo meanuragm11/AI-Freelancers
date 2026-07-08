@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { isStaleAuthSessionError } from "@/lib/auth/errors";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 
@@ -14,12 +15,12 @@ async function syncProfile(userId: string, fullName: string) {
     .eq("id", userId)
     .maybeSingle();
 
-  // Preserve an existing builder profile; new unified signups default to buyer.
-  const profileRole = existingProfile?.role || UNIFIED_ROLE;
-  const isFreelancer =
-    existingProfile?.is_freelancer ?? profileRole === "builder";
+  const isFreelancer = existingProfile?.is_freelancer === true;
+  const profileRole = isFreelancer
+    ? existingProfile?.role ?? "builder"
+    : UNIFIED_ROLE;
 
-  await supabase.from("profiles").upsert([
+  const { error } = await supabase.from("profiles").upsert([
     {
       id: userId,
       full_name: fullName,
@@ -27,6 +28,20 @@ async function syncProfile(userId: string, fullName: string) {
       is_freelancer: isFreelancer,
     },
   ]);
+
+  if (error) {
+    console.error("Profile sync error:", error.message);
+  }
+}
+
+async function routeAfterAuth(userId: string) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_freelancer")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return profile?.is_freelancer ? "/builder/dashboard" : "/buyer/discover";
 }
 
 function AuthCallbackContent() {
@@ -34,44 +49,56 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState("Securing your connection…");
 
   useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+    let redirected = false;
 
-        if (error) {
-          console.error("Session error:", error);
-          setStatus("Authentication failed. Redirecting…");
-          setTimeout(() => router.push("/auth"), 2000);
-          return;
-        }
+    const redirectToApp = async (userId: string, fullName: string) => {
+      if (redirected) return;
+      redirected = true;
 
-        if (session) {
-          const fullName = session.user.user_metadata?.full_name || "Zelance User";
-          await syncProfile(session.user.id, fullName);
-
-          setStatus("Verification successful! Redirecting…");
-          setTimeout(() => router.push("/"), 1000);
-        } else {
-          setStatus("Completing verification…");
-        }
-      } catch (err) {
-        console.error("Callback error:", err);
-        setStatus("Something went wrong. Redirecting to login…");
-        setTimeout(() => router.push("/auth"), 2000);
-      }
+      await syncProfile(userId, fullName);
+      const destination = await routeAfterAuth(userId);
+      setStatus("Verification successful! Redirecting…");
+      router.replace(destination);
     };
 
-    handleCallback();
+    const handleAuthFailure = async (message: string) => {
+      if (redirected) return;
+      redirected = true;
+
+      console.error("Auth callback error:", message);
+      await supabase.auth.signOut();
+      setStatus("Authentication failed. Redirecting…");
+      setTimeout(() => router.replace("/auth"), 1500);
+    };
+
+    const completeSignIn = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) {
+        await handleAuthFailure(error.message);
+        return;
+      }
+
+      if (isStaleAuthSessionError(error) || !user) {
+        await handleAuthFailure("Authentication failed.");
+        return;
+      }
+
+      const fullName = user.user_metadata?.full_name || "Zelance User";
+      await redirectToApp(user.id, fullName);
+    };
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
+      if (event === "SIGNED_IN" && session?.user) {
         const fullName = session.user.user_metadata?.full_name || "Zelance User";
-        await syncProfile(session.user.id, fullName);
-
-        setStatus("Verification successful! Redirecting…");
-        setTimeout(() => router.push("/"), 1000);
+        await redirectToApp(session.user.id, fullName);
       }
     });
+
+    completeSignIn();
 
     return () => {
       authListener.subscription.unsubscribe();

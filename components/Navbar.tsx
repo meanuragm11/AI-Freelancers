@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { subscribeToOnlinePresence } from '@/lib/onlinePresenceChannel';
 import NotificationBell from "@/components/NotificationBell";
+import { isVerifiedBuilder, showsBuyerNav } from "@/lib/accountMode";
 
 export default function Navbar() {
   const router = useRouter();
@@ -107,8 +108,8 @@ export default function Navbar() {
     router.refresh();
   };
 
-  const isBuilderAccount = profile?.role === 'builder' || profile?.is_freelancer === true;
-  const isBuyerAccount = profile?.role === 'buyer' || !isBuilderAccount;
+  const isBuilderAccount = isVerifiedBuilder(profile);
+  const isBuyerAccount = showsBuyerNav(profile);
 
   return (
     <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
@@ -134,11 +135,9 @@ export default function Navbar() {
               Manage Purchases
             </Link>
           )}
-          {(!currentUser || isBuilderAccount) && (
-            <Link href="/builder/dashboard" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-              {currentUser ? 'Builder Workspace' : 'Become AI Expert'}
-            </Link>
-          )}
+          <Link href="/builder/dashboard" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
+            {isBuilderAccount ? 'Builder Workspace' : 'Become AI Expert'}
+          </Link>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
@@ -213,12 +212,10 @@ export default function Navbar() {
                         My Profile
                       </Link>
 
-                      {isBuilderAccount && (
-                        <Link href="/builder/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
-                          <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                          Workspace
-                        </Link>
-                      )}
+                      <Link href="/builder/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
+                        <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {isBuilderAccount ? 'Workspace' : 'Become AI Expert'}
+                      </Link>
 
                       <Link href="/buyer/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
                         <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
@@ -281,7 +278,7 @@ export default function Navbar() {
               <Link href="/" className="block text-lg font-black text-slate-900">Home</Link>
               {(!currentUser || isBuyerAccount) && <Link href="/buyer/discover" className="block text-lg font-black text-slate-900">Hire AI Experts</Link>}
               {currentUser && hasPurchases && <Link href="/buyer/dashboard" className="block text-lg font-black text-slate-900">Manage Purchases</Link>}
-              {(!currentUser || isBuilderAccount) && <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">{currentUser ? 'Builder Workspace' : 'Become AI Expert'}</Link>}
+              <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">{isBuilderAccount ? 'Builder Workspace' : 'Become AI Expert'}</Link>
             </div>
             <div className="h-px bg-slate-200"></div>
 
@@ -308,9 +305,9 @@ export default function Navbar() {
 
                 <div className="space-y-1">
                   <Link href="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">👤 My Profile</Link>
-                  {isBuilderAccount && (
-                    <Link href="/builder/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💼 Workspace</Link>
-                  )}
+                  <Link href="/builder/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
+                    {isBuilderAccount ? '💼 Workspace' : '✨ Become AI Expert'}
+                  </Link>
                   <Link href="/buyer/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">📁 Manage Purchases</Link>
                   <Link href="/buyer/saved" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🔖 Saved Experts</Link>
                   <Link href={isBuilderAccount ? '/builder/wallet' : '/buyer/billing'} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💳 Payments</Link>

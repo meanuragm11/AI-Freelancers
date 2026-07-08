@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isVerifiedBuilder, showsBuyerNav } from '@/lib/accountMode';
+import { isStaleAuthSessionError } from '@/lib/auth/errors';
 
 const BUYER_HOME = '/buyer/dashboard';
 const BUILDER_HOME = '/builder/dashboard';
@@ -49,7 +51,12 @@ export default async function proxy(request: NextRequest) {
   // Securely get the user session
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+
+  if (!user && isStaleAuthSessionError(authError)) {
+    await supabase.auth.signOut();
+  }
 
   // If there is no user and they are trying to access /buyer, /builder, or the
   // founder command center, boot them to login
@@ -72,12 +79,14 @@ export default async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const isBuilderAccount = profile?.role === 'builder' || profile?.is_freelancer === true;
-    const isBuyerAccount = profile?.role === 'buyer' || !isBuilderAccount;
+    const isBuilderAccount = isVerifiedBuilder(profile);
+    const isBuyerAccount = showsBuyerNav(profile);
 
-    if (isBuilderPath && !isBuilderAccount) {
+    const isBuilderOnboardingPath = pathname === BUILDER_HOME;
+
+    if (isBuilderPath && !isBuilderAccount && !isBuilderOnboardingPath) {
       const url = request.nextUrl.clone();
-      url.pathname = BUYER_HOME;
+      url.pathname = BUILDER_HOME;
       url.search = '';
       return NextResponse.redirect(url);
     }

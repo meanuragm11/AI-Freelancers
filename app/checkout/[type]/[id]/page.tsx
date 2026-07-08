@@ -335,7 +335,7 @@ export default function SecureCheckout() {
 
             {user && (checkoutType !== 'project' || paymentItemId) && (
               <RazorpayCheckoutButton
-                amountUsd={transaction.amount}
+                amountUsd={transaction.total}
                 itemId={checkoutType === 'project' ? escrowItemId : referenceId}
                 transactionType={transactionType}
                 buttonText={`Pay $${transaction.total.toLocaleString(undefined, { minimumFractionDigits: 2 })} Securely`}

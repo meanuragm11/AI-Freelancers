@@ -10,6 +10,7 @@ export type PortfolioLinkInput = {
 };
 
 export type PortfolioFormState = {
+  id?: string;
   title: string;
   short_description: string;
   links: PortfolioLinkInput[];
@@ -78,6 +79,7 @@ export function getProjectLinks(project: Pick<
 export function projectToFormState(project: PortfolioProject): PortfolioFormState {
   const links = getProjectLinks(project);
   return {
+    id: project.id,
     title: project.title,
     short_description: project.short_description || "",
     links: links.length > 0 ? links.map((l) => ({ title: l.title, url: l.url })) : [{ title: "Live Demo", url: "" }],

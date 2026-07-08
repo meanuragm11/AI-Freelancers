@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useId } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { clearStaleAuthSession, isStaleAuthSessionError } from "@/lib/auth/session";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
@@ -127,7 +128,14 @@ export function AuthExperience() {
     async function checkExistingSession() {
       const {
         data: { user },
+        error,
       } = await supabase.auth.getUser();
+
+      if (isStaleAuthSessionError(error)) {
+        await supabase.auth.signOut();
+        return;
+      }
+
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -208,36 +216,22 @@ export function AuthExperience() {
     setFormError(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const redirectTo = `${window.location.origin}${CALLBACK_URL}`;
+      // getSession() reads local storage only; stale JWTs from deleted users
+      // caused linkIdentity to run and fail with "sub claim does not exist".
+      await clearStaleAuthSession();
 
-      if (session) {
-        const { error: linkError } = await supabase.auth.linkIdentity({
-          provider: "google",
-          options: {
-            redirectTo,
-            queryParams: {
-              access_type: "offline",
-              prompt: "consent",
-            },
+      const redirectTo = `${window.location.origin}${CALLBACK_URL}`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
           },
-        });
-        if (linkError) throw linkError;
-      } else {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo,
-            queryParams: {
-              access_type: "offline",
-              prompt: "consent",
-            },
-          },
-        });
-        if (error) throw error;
-      }
+        },
+      });
+      if (error) throw error;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Google sign-in failed.";
       setFormError(message);
@@ -397,7 +391,7 @@ export function AuthExperience() {
             Hire experts. Build your AI business.
           </h1>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
-            One account for everything on Zelance — discover talent, post bounties, or
+            One account for everything on Zelance — discover talent or
             publish services when you&apos;re ready.
           </p>
 
@@ -418,7 +412,7 @@ export function AuthExperience() {
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs text-blue-300">
                 ✓
               </span>
-              Switch between buyer &amp; builder anytime
+              Hire AI experts or publish your AI services
             </li>
           </ul>
         </div>

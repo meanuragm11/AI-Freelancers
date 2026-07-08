@@ -6,31 +6,15 @@ import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from 'next/image';
 import ServiceManager from '@/components/builder/ServiceManager';
+import ExpertOnboardingWizard from '@/components/builder/ExpertOnboardingWizard';
 import PortfolioManager from '@/components/builder/PortfolioManager';
 import EarningsLedgerPanel from '@/components/builder/EarningsLedgerPanel';
 import ComponentFormModal from '@/components/builder/ComponentFormModal';
 import NegotiationModal from '@/components/NegotiationModal';
 import type { ComponentRecord } from '@/lib/components/form';
-import { countPublishedServices, createService } from '@/lib/services';
-import { createPortfolioProject } from '@/lib/portfolio';
+import { ONBOARDING_COUNTRIES, type OnboardingProfileState } from '@/lib/onboarding/profile';
 import { listBuilderProjectRequests } from '@/lib/project-requests';
 import { ACTIVE_COLLAB_STATUSES, COMPLETED_COLLAB_STATUSES } from '@/lib/marketplace/status';
-
-const COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "India", "Germany", "France", "Japan", "Singapore", "Netherlands", "Brazil", "Switzerland", "United Arab Emirates", "Sweden", "Israel", "South Korea", "Spain", "Italy", "Other"
-];
-
-const EXHAUSTIVE_AI_TECH_STACK = [
-  "Generative AI", "Prompt Engineering", "AI Agent Development", "Agentic AI", "AI Automation",
-  "AI Workflow Design", "LLM Integration", "RAG Architecture", "Fine-Tuning (LoRA/QLoRA)",
-  "Model Evaluation", "Model Distillation", "AI Chatbot Development", "AI Voice Agents",
-  "AI Video Generation", "AI Image Generation", "AI Content Creation", "AI Product Development",
-  "LangChain", "LlamaIndex", "CrewAI", "AutoGen", "LangGraph", "Semantic Kernel", "Haystack",
-  "OpenAI API", "Anthropic API", "Google Gemini API", "Groq API", "Mistral API", "DeepSeek API",
-  "Python", "FastAPI", "Node.js", "React", "Next.js", "TypeScript", "Other (Custom)"
-];
-
-const PLATFORM_FLAT_FEE = 5;
 
 const Icons = {
   Overview: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
@@ -61,24 +45,8 @@ export default function UnifiedBuilderWorkspace() {
   const [componentModalOpen, setComponentModalOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<ComponentRecord | null>(null);
 
-  const [step, setStep] = useState(1);
-  const [saving, setSaving] = useState(false);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
-
-  const [formData, setFormData] = useState({
-    full_name: '', headline: '', location: COUNTRIES[4], bio: '', base_price_usd: 150,
-    unlimited_revisions: false, included_revisions: 1, extra_revision_price_usd: 25,
-    tech_stack: [] as string[], external_projects: [] as any[]
-  });
-
-  const [onboardingPortfolio, setOnboardingPortfolio] = useState<any[]>([]);
-  const [onboardingService, setOnboardingService] = useState({
-    title: '', short_description: '', starting_price_usd: 150, delivery_time_days: 7,
-    included_revisions: 1, extra_revision_price_usd: 25, category: 'Generative AI',
-  });
+  const [onboardingProfileSeed, setOnboardingProfileSeed] = useState<Partial<OnboardingProfileState>>();
   const [customRequests, setCustomRequests] = useState<any[]>([]);
-  const [selectedTech, setSelectedTech] = useState(EXHAUSTIVE_AI_TECH_STACK[0]);
-  const [customTech, setCustomTech] = useState('');
   const [negotiationModalOpen, setNegotiationModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
@@ -110,6 +78,20 @@ export default function UnifiedBuilderWorkspace() {
     }
   }, [router]);
 
+  const handleOnboardingComplete = useCallback(async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+      if (profileData) setProfile(profileData);
+    }
+    setIsFreelancer(true);
+    await loadDashboard(true);
+  }, [loadDashboard]);
+
   useEffect(() => {
     async function initializeWorkspace() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -131,19 +113,13 @@ export default function UnifiedBuilderWorkspace() {
           setIsFreelancer(true);
           await loadDashboard(true);
         } else {
-          setFormData(prev => ({
-            ...prev,
+          setOnboardingProfileSeed({
             full_name: profileData.full_name || '',
             headline: profileData.headline || '',
-            location: profileData.location || COUNTRIES[4],
+            location: profileData.location || ONBOARDING_COUNTRIES[4],
             bio: profileData.bio || '',
             tech_stack: profileData.tech_stack || [],
-            base_price_usd: profileData.base_price_usd || 150,
-            unlimited_revisions: profileData.unlimited_revisions || false,
-            included_revisions: profileData.included_revisions || 1,
-            extra_revision_price_usd: profileData.extra_revision_price_usd || 25,
-            external_projects: profileData.external_projects || []
-          }));
+          });
           setLoading(false);
         }
       } else {
@@ -202,36 +178,11 @@ export default function UnifiedBuilderWorkspace() {
     };
   }, [isFreelancer, loadDashboard, user?.id]);
 
-  useEffect(() => {
-    if (loading || !user || isFreelancer) return;
-
-    const autoSaveDraft = setTimeout(async () => {
-      setIsAutoSaving(true);
-      const payload = {
-        id: user.id, full_name: formData.full_name, headline: formData.headline, location: formData.location,
-        bio: formData.bio, tech_stack: formData.tech_stack, base_price_usd: formData.base_price_usd,
-        unlimited_revisions: formData.unlimited_revisions, included_revisions: formData.included_revisions,
-        extra_revision_price_usd: formData.extra_revision_price_usd, external_projects: formData.external_projects
-      };
-      await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-      setIsAutoSaving(false);
-    }, 1000);
-
-    return () => clearTimeout(autoSaveDraft);
-  }, [formData, user, loading, isFreelancer]);
-
   const isActiveCollab = (status?: string | null) =>
     (ACTIVE_COLLAB_STATUSES as readonly string[]).includes((status || '').toLowerCase());
 
   const isCompletedCollab = (status?: string | null) =>
     (COMPLETED_COLLAB_STATUSES as readonly string[]).includes((status || '').toLowerCase());
-
-  const handleAddTech = () => {
-    const techToAdd = selectedTech === "Other (Custom)" ? customTech.trim() : selectedTech;
-    if (!techToAdd) { alert("Please enter your custom skill."); return; }
-    if (!formData.tech_stack.includes(techToAdd)) setFormData({ ...formData, tech_stack: [...formData.tech_stack, techToAdd] });
-    setCustomTech("");
-  };
 
   const handleAcceptRequest = async (requestId: string) => {
     if (!user) return;
@@ -329,72 +280,6 @@ export default function UnifiedBuilderWorkspace() {
     }
   };
 
-  const validateStep = (currentStep: number) => {
-    if (currentStep === 1 && (!formData.full_name.trim() || !formData.headline.trim() || !formData.location.trim())) { alert("Please complete all fields."); return false; }
-    if (currentStep === 2 && (!formData.bio.trim() || formData.tech_stack.length === 0)) { alert("Bio and Tech Stack are mandatory."); return false; }
-    if (currentStep === 3) {
-      if (formData.base_price_usd < 6) { alert("Minimum base project price must be at least $6 USD."); return false; }
-      if (!formData.unlimited_revisions && formData.included_revisions < 1) { alert("Must provide at least 1 free revision."); return false; }
-    }
-    if (currentStep === 5) {
-      if (!onboardingService.title.trim()) { alert("Service title is required."); return false; }
-      if (onboardingService.starting_price_usd < 6) { alert("Service price must be at least $6."); return false; }
-    }
-    return true;
-  };
-
-  const handlePublish = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    if (!validateStep(3)) return;
-
-    setSaving(true);
-    try {
-      const payload = {
-        is_freelancer: true, full_name: formData.full_name, headline: formData.headline, location: formData.location,
-        bio: formData.bio, tech_stack: formData.tech_stack, base_price_usd: formData.base_price_usd,
-        unlimited_revisions: formData.unlimited_revisions, included_revisions: formData.included_revisions,
-        extra_revision_price_usd: formData.extra_revision_price_usd, external_projects: formData.external_projects
-      };
-
-      const { error } = await supabase.from("profiles").upsert({ id: user.id, ...payload }, { onConflict: "id" });
-      if (error) throw error;
-
-      for (const p of onboardingPortfolio) {
-        const url = p.url?.trim();
-        await createPortfolioProject(user.id, {
-          title: p.title,
-          short_description: p.description || p.short_description || "",
-          detailed_description: p.description,
-          links: url ? [{ title: "Project Link", url }] : [],
-          live_demo_url: url || null,
-          media_files: p.file_name ? [{ type: "file", url: p.file_name, name: p.title }] : [],
-        });
-      }
-
-      await createService(user.id, {
-        title: onboardingService.title,
-        short_description: onboardingService.short_description,
-        detailed_description: onboardingService.short_description,
-        category: onboardingService.category,
-        ai_skills: formData.tech_stack,
-        starting_price_usd: onboardingService.starting_price_usd,
-        delivery_time_days: onboardingService.delivery_time_days,
-        included_revisions: onboardingService.included_revisions,
-        extra_revision_price_usd: onboardingService.extra_revision_price_usd,
-        status: 'published',
-      });
-
-      setProfile({ ...profile, ...payload });
-      await loadDashboard(false);
-      setIsFreelancer(true);
-      window.scrollTo(0, 0);
-    } catch (err: any) {
-      alert("Database Sync Error: " + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleArchiveComponent = async (compId: string) => {
     if (
       !window.confirm(
@@ -459,178 +344,15 @@ export default function UnifiedBuilderWorkspace() {
   // ==========================================
   // VIEW A: THE ONBOARDING WIZARD
   // ==========================================
-  if (!isFreelancer) {
-    const netEarnings = Math.max(0, formData.base_price_usd - PLATFORM_FLAT_FEE);
+  if (!isFreelancer && user) {
     return (
-      <div className="min-h-screen bg-slate-50 py-16 px-6 relative overflow-hidden font-sans pb-32">
-        <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
-        <div className="max-w-2xl mx-auto relative z-10">
-
-          <button type="button" onClick={() => router.push('/profile/me')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors mb-10">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg> Back to Profile
-          </button>
-
-          <div className="mb-10 flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-4">
-            <div>
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Join the Talent Network</h1>
-              <p className="text-slate-500 font-medium text-sm">Complete your profile to accept direct enterprise contracts.</p>
-            </div>
-            <div className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-white shadow-sm border border-slate-200 text-slate-400 flex items-center gap-2">
-              {isAutoSaving ? <><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Saving...</> : <><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Saved</>}
-            </div>
-          </div>
-
-          <div className="w-full bg-slate-200 h-1.5 rounded-full mb-10 overflow-hidden">
-            <div className="bg-blue-600 h-full transition-all duration-500 ease-out" style={{ width: `${(step / 5) * 100}%` }}></div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 md:p-12 shadow-sm min-h-[400px] flex flex-col">
-
-            {step === 1 && (
-              <div className="animate-in fade-in flex-1">
-                <h2 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">1. Core Identity</h2>
-                <div className="space-y-6">
-                  <div>
-                    <label htmlFor="full_name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Full Name <span className="text-red-500">*</span></label>
-                    <input id="full_name" type="text" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-colors" />
-                  </div>
-                  <div>
-                    <label htmlFor="headline" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Professional Headline <span className="text-red-500">*</span></label>
-                    <input id="headline" type="text" value={formData.headline} onChange={(e) => setFormData({ ...formData, headline: e.target.value })} placeholder="e.g., Senior AI Engineer" className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none transition-colors" />
-                  </div>
-                  <div>
-                    <label htmlFor="location" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Location <span className="text-red-500">*</span></label>
-                    <select id="location" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold outline-none cursor-pointer transition-colors">
-                      {COUNTRIES.map(country => <option key={country} value={country}>{country}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="animate-in fade-in flex-1">
-                <h2 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">2. Expertise & Tech Stack</h2>
-                <div className="space-y-8">
-                  <div>
-                    <label htmlFor="bio" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Professional Bio <span className="text-red-500">*</span></label>
-                    <textarea id="bio" rows={5} value={formData.bio} onChange={(e) => setFormData({ ...formData, bio: e.target.value })} placeholder="Detail your engineering background..." className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-medium outline-none resize-none transition-colors" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Skills <span className="text-red-500">*</span></label>
-                    <div className="flex flex-wrap gap-2 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-100 min-h-[60px]">
-                      {formData.tech_stack.length === 0 ? <span className="text-xs font-bold text-slate-400">Select technologies below.</span> : formData.tech_stack.map((tech, i) => (
-                        <span key={i} className="bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
-                          {tech} <button type="button" aria-label={`Remove ${tech}`} onClick={() => setFormData({ ...formData, tech_stack: formData.tech_stack.filter(t => t !== tech) })} className="hover:text-red-500 transition-colors">✕</button>
-                        </span>
-                      ))}
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <select aria-label="Select Technology" value={selectedTech} onChange={(e) => setSelectedTech(e.target.value)} className="bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-xs font-black outline-none flex-1 cursor-pointer transition-colors">
-                          {EXHAUSTIVE_AI_TECH_STACK.map((tech) => <option key={tech} value={tech}>{tech}</option>)}
-                        </select>
-                        <button type="button" onClick={handleAddTech} className="bg-slate-900 hover:bg-blue-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">Add</button>
-                      </div>
-                      {selectedTech === "Other (Custom)" && (
-                        <input type="text" aria-label="Custom Skill" value={customTech} onChange={(e) => setCustomTech(e.target.value)} placeholder="Enter custom skill..." className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold outline-none transition-colors" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="animate-in fade-in flex-1">
-                <h2 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">3. Pricing & Scope</h2>
-                <div className="space-y-8">
-                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl">
-                    <label htmlFor="base_price" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Base Project Minimum (USD) <span className="text-red-500">*</span></label>
-                    <div className="relative mb-4">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">$</span>
-                      <input id="base_price" type="number" min="6" step="1" value={formData.base_price_usd} onChange={(e) => setFormData({ ...formData, base_price_usd: Number(e.target.value) })} className="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-xl pl-10 pr-4 py-4 text-2xl font-black outline-none shadow-sm transition-colors" />
-                    </div>
-                    <div className="flex justify-between items-center pt-4 border-t border-slate-200">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Fee</span>
-                      <span className="text-xs font-black text-rose-500">-${PLATFORM_FLAT_FEE}</span>
-                    </div>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">You Earn</span>
-                      <span className="text-lg font-black text-green-600">${netEarnings.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl">
-                    <div className="flex items-center gap-3 mb-2">
-                      <input type="checkbox" id="unlimited_revisions" checked={formData.unlimited_revisions} onChange={(e) => setFormData({ ...formData, unlimited_revisions: e.target.checked })} className="w-5 h-5 text-blue-600 rounded cursor-pointer border-slate-300" />
-                      <label htmlFor="unlimited_revisions" className="text-xs font-black text-slate-700 cursor-pointer">Offer unlimited free revisions</label>
-                    </div>
-                    {!formData.unlimited_revisions && (
-                      <div className="grid grid-cols-2 gap-6 pt-6 border-t border-slate-200 animate-in fade-in">
-                        <div>
-                          <label htmlFor="included_revisions" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Included Revisions</label>
-                          <input id="included_revisions" type="number" min="1" value={formData.included_revisions} onChange={(e) => setFormData({ ...formData, included_revisions: Number(e.target.value) })} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold outline-none transition-colors" />
-                        </div>
-                        <div>
-                          <label htmlFor="extra_revision" className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Extra Fee ($)</label>
-                          <input id="extra_revision" type="number" min="0" value={formData.extra_revision_price_usd} onChange={(e) => setFormData({ ...formData, extra_revision_price_usd: Number(e.target.value) })} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold outline-none transition-colors" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="animate-in fade-in flex-1 space-y-4">
-                <h2 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">4. Portfolio Projects</h2>
-                <p className="text-sm text-slate-500">Add showcase projects (optional but recommended).</p>
-                <input type="text" placeholder="Project title" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const t = (e.target as HTMLInputElement).value.trim();
-                    if (t) setOnboardingPortfolio([...onboardingPortfolio, { title: t, description: '' }]);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }} />
-                <div className="space-y-2">
-                  {onboardingPortfolio.map((p, i) => (
-                    <div key={i} className="flex justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold">
-                      <span>{p.title}</span>
-                      <button type="button" onClick={() => setOnboardingPortfolio(onboardingPortfolio.filter((_, j) => j !== i))} className="text-red-500">✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {step === 5 && (
-              <div className="animate-in fade-in flex-1 space-y-4">
-                <h2 className="text-xl font-black text-slate-900 mb-6 border-b border-slate-100 pb-4">5. Create First Service (Required)</h2>
-                <input value={onboardingService.title} onChange={(e) => setOnboardingService({ ...onboardingService, title: e.target.value })} placeholder="Service title" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" />
-                <textarea value={onboardingService.short_description} onChange={(e) => setOnboardingService({ ...onboardingService, short_description: e.target.value })} placeholder="Short description" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="number" min={6} value={onboardingService.starting_price_usd} onChange={(e) => setOnboardingService({ ...onboardingService, starting_price_usd: Number(e.target.value) })} placeholder="Price USD" className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" />
-                  <input type="number" min={1} value={onboardingService.delivery_time_days} onChange={(e) => setOnboardingService({ ...onboardingService, delivery_time_days: Number(e.target.value) })} placeholder="Delivery days" className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" />
-                </div>
-              </div>
-            )}
-
-            <div className="pt-8 mt-auto border-t border-slate-100 flex items-center justify-between gap-4">
-              {step > 1 ? <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-colors">Back</button> : <div></div>}
-              {step < 5 ? (
-                <button type="button" onClick={() => { if (validateStep(step)) setStep(step + 1); }} className="bg-slate-900 hover:bg-blue-600 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-colors">Continue</button>
-              ) : (
-                <button type="button" onClick={handlePublish} disabled={saving} className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-colors flex items-center gap-2">
-                  {saving ? 'Processing...' : 'Activate Profile'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <ExpertOnboardingWizard
+        userId={user.id}
+        initialProfile={onboardingProfileSeed}
+        onComplete={() => {
+          void handleOnboardingComplete();
+        }}
+      />
     );
   }
 

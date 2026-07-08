@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { calculateEscrowMilestonePlatformFee } from '@/lib/milestones/platformFees';
 import { resolveServiceListingCheckoutAmount } from '@/lib/milestones/syncServiceCheckoutPrice';
 import { assertProfileCan, ModerationBlockedError } from '@/lib/moderation/checks';
-
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+import { convertUsdToRazorpayCheckoutAmount } from '@/lib/payments/razorpayCurrency';
+import { resolveRazorpayCheckoutKeyId } from '@/lib/payments/razorpayCheckoutKey';
+import { getRazorpayClient } from '@/lib/payments/razorpayClient';
+import { logRazorpayOrderEvent } from '@/lib/payments/razorpayOrderLog';
+import {
+  fetchRazorpayOrder,
+  validateRazorpayOrderForReuse,
+} from '@/lib/payments/razorpayOrderValidation';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +31,30 @@ type OrderPayload = {
   transactionType?: string;
   itemId?: string;
   buyerId?: string;
+  forceRefresh?: boolean;
 };
+
+async function expirePendingTransactionsForCheckout(
+  buyerId: string,
+  itemId: string,
+  transactionType: string,
+  excludeTransactionId?: string
+) {
+  let query = supabaseAdmin
+    .from('transactions')
+    .update({ status: 'expired', updated_at: new Date().toISOString() })
+    .eq('buyer_id', buyerId)
+    .eq('item_id', itemId)
+    .eq('transaction_type', transactionType)
+    .eq('status', 'pending');
+
+  if (excludeTransactionId) {
+    query = query.neq('id', excludeTransactionId);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+}
 
 async function getServerUser() {
   const cookieStore = await cookies();
@@ -89,7 +114,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { transactionType, itemId, buyerId } = (await req.json()) as OrderPayload;
+    const { transactionType, itemId, buyerId, forceRefresh } = (await req.json()) as OrderPayload;
 
     if (!transactionType || !itemId) {
       return NextResponse.json({ error: 'Missing required payment data' }, { status: 400 });
@@ -251,9 +276,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid payable amount' }, { status: 400 });
     }
 
+    let keyId: string;
+    try {
+      keyId = resolveRazorpayCheckoutKeyId();
+    } catch {
+      return NextResponse.json(
+        { error: 'Payment gateway is not configured. Missing Razorpay key.' },
+        { status: 503 }
+      );
+    }
+
+    const checkoutAmount = convertUsdToRazorpayCheckoutAmount(finalCharge);
+    const expectedAmountCents = checkoutAmount.amountSmallestUnit;
+    const orderExpectation = {
+      amountCents: expectedAmountCents,
+      currency: checkoutAmount.currency,
+      checkoutType,
+      referenceId: itemId,
+      userId: user.id,
+      transactionType: internal,
+      platformFeeUsd: platformFee,
+    };
+
     const { data: reusablePending, error: pendingError } = await supabaseAdmin
       .from('transactions')
-      .select('order_id, amount_usd, fee_usd, payment_expires_at')
+      .select('id, order_id, amount_usd, fee_usd, payment_expires_at')
       .eq('buyer_id', user.id)
       .eq('item_id', itemId)
       .eq('transaction_type', internal)
@@ -264,26 +311,109 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (pendingError) throw pendingError;
-    if (reusablePending?.order_id) {
+
+    if (forceRefresh && reusablePending) {
+      logRazorpayOrderEvent({
+        event: 'order.force_refresh',
+        buyerId: user.id,
+        orderId: reusablePending.order_id ?? undefined,
+        transactionId: reusablePending.id,
+        checkoutType,
+        referenceId: itemId,
+        transactionType: internal,
+        forceRefresh: true,
+      });
+      await expirePendingTransactionsForCheckout(user.id, itemId, internal);
+    } else if (reusablePending?.order_id) {
       const pendingAmount = Number(reusablePending.amount_usd);
       const pendingFee = Number(reusablePending.fee_usd ?? 0);
-      if (
-        Math.abs(pendingAmount - finalCharge) < 0.01 &&
-        pendingFee === platformFee
-      ) {
-        return NextResponse.json({
-          success: true,
+
+      if (Math.abs(pendingAmount - finalCharge) < 0.01 && pendingFee === platformFee) {
+        logRazorpayOrderEvent({
+          event: 'order.reuse.attempt',
+          buyerId: user.id,
           orderId: reusablePending.order_id,
-          amountToPay: pendingAmount,
-          platformFee,
-          reused: true,
+          transactionId: reusablePending.id,
+          checkoutType,
+          referenceId: itemId,
+          transactionType: internal,
+          amountUsd: pendingAmount,
+          platformFeeUsd: platformFee,
         });
+
+        const validation = await validateRazorpayOrderForReuse(reusablePending.order_id, {
+          ...orderExpectation,
+          paymentExpiresAt: reusablePending.payment_expires_at,
+        });
+
+        if (validation.valid) {
+          logRazorpayOrderEvent({
+            event: 'order.reuse.success',
+            buyerId: user.id,
+            orderId: reusablePending.order_id,
+            transactionId: reusablePending.id,
+            checkoutType,
+            referenceId: itemId,
+            transactionType: internal,
+            amountUsd: pendingAmount,
+            platformFeeUsd: platformFee,
+            reused: true,
+            razorpayStatus: validation.razorpayStatus,
+          });
+
+          const reusedOrder = await fetchRazorpayOrder(reusablePending.order_id);
+          const reusedKeyId = resolveRazorpayCheckoutKeyId(reusedOrder);
+
+          return NextResponse.json({
+            success: true,
+            orderId: reusablePending.order_id,
+            amountToPay: pendingAmount,
+            amountCents: reusedOrder.amount ?? expectedAmountCents,
+            currency: (reusedOrder.currency ?? orderExpectation.currency).toUpperCase(),
+            keyId: reusedKeyId,
+            platformFee,
+            reused: true,
+          });
+        }
+
+        logRazorpayOrderEvent({
+          event: 'order.reuse.rejected',
+          buyerId: user.id,
+          orderId: reusablePending.order_id,
+          transactionId: reusablePending.id,
+          checkoutType,
+          referenceId: itemId,
+          transactionType: internal,
+          reason: validation.reason,
+          razorpayStatus: validation.razorpayStatus,
+          hasCapturedPayment: validation.hasCapturedPayment,
+        });
+
+        await supabaseAdmin
+          .from('transactions')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('id', reusablePending.id);
+
+        logRazorpayOrderEvent({
+          event: 'order.reuse.expired',
+          buyerId: user.id,
+          orderId: reusablePending.order_id,
+          transactionId: reusablePending.id,
+          checkoutType,
+          referenceId: itemId,
+          transactionType: internal,
+          reason: validation.reason,
+        });
+      } else {
+        await expirePendingTransactionsForCheckout(user.id, itemId, internal, reusablePending.id);
       }
     }
 
+    await expirePendingTransactionsForCheckout(user.id, itemId, internal);
+
     const options = {
-      amount: Math.round(finalCharge * 100),
-      currency: 'USD',
+      amount: checkoutAmount.amountSmallestUnit,
+      currency: checkoutAmount.currency,
       receipt: `rcpt_${user.id.substring(0, 8)}_${Date.now()}`,
       notes: {
         checkout_type: checkoutType,
@@ -294,7 +424,46 @@ export async function POST(req: Request) {
       },
     };
 
-    const order = await razorpay.orders.create(options);
+    logRazorpayOrderEvent({
+      event: 'order.create.start',
+      buyerId: user.id,
+      checkoutType,
+      referenceId: itemId,
+      transactionType: internal,
+      amountUsd: finalCharge,
+      platformFeeUsd: platformFee,
+      forceRefresh: Boolean(forceRefresh),
+      metadata: {
+        createPayload: options,
+        keyIdPrefix: keyId.slice(0, 8),
+        checkoutCurrency: checkoutAmount.currency,
+        expectedAmountCents,
+      },
+    });
+
+    const order = await getRazorpayClient().orders.create(options);
+
+    logRazorpayOrderEvent({
+      event: 'order.create.success',
+      buyerId: user.id,
+      orderId: order.id,
+      checkoutType,
+      referenceId: itemId,
+      transactionType: internal,
+      amountUsd: finalCharge,
+      platformFeeUsd: platformFee,
+      metadata: {
+        razorpayOrder: {
+          id: order.id,
+          amount: order.amount,
+          amount_due: order.amount_due,
+          currency: order.currency,
+          status: order.status,
+          key_id: (order as { key_id?: string | null }).key_id ?? null,
+        },
+        createPayload: options,
+      },
+    });
 
     const { error: insertError } = await supabaseAdmin.from('transactions').insert({
       order_id: order.id,
@@ -312,10 +481,15 @@ export async function POST(req: Request) {
 
     if (insertError) throw insertError;
 
+    const createdKeyId = resolveRazorpayCheckoutKeyId(order);
+
     return NextResponse.json({
       success: true,
       orderId: order.id,
       amountToPay: finalCharge,
+      amountCents: order.amount ?? expectedAmountCents,
+      currency: (order.currency ?? orderExpectation.currency).toUpperCase(),
+      keyId: createdKeyId,
       platformFee,
     });
   } catch (error: unknown) {
@@ -323,6 +497,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     const message = error instanceof Error ? error.message : 'Payment initialization failed';
+    logRazorpayOrderEvent({
+      event: 'order.create.failed',
+      error: message,
+    });
     console.error('Razorpay Error:', error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
