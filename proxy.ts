@@ -13,6 +13,7 @@ export default async function proxy(request: NextRequest) {
   const isBuilderPath = pathname.startsWith('/builder');
   const isFounderPath = pathname.startsWith('/founder');
   const isLegacyAdminPath = pathname.startsWith('/admin');
+  const isProjectsNewPath = pathname === '/projects/new';
 
   // Legacy /admin UI removed — send to founder command center (auth enforced in layout).
   if (isLegacyAdminPath) {
@@ -58,9 +59,8 @@ export default async function proxy(request: NextRequest) {
     await supabase.auth.signOut();
   }
 
-  // If there is no user and they are trying to access /buyer, /builder, or the
-  // founder command center, boot them to login
-  if (!user && (isBuyerPath || isBuilderPath || isFounderPath)) {
+  // If there is no user and they are trying to access protected routes, boot to login
+  if (!user && (isBuyerPath || isBuilderPath || isFounderPath || isProjectsNewPath)) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth';
     url.searchParams.set('redirect', pathname);

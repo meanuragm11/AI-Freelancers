@@ -18,7 +18,9 @@ export type BusinessEventEntityType =
   | 'support_ticket'
   | 'withdrawal'
   | 'refund_request'
-  | 'profile';
+  | 'profile'
+  | 'open_project'
+  | 'open_project_proposal';
 
 export type BusinessEventInput = {
   eventType: string;

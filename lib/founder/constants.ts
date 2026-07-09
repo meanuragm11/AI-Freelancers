@@ -3,6 +3,7 @@ export const FOUNDER_NAV_ITEMS = [
   { href: '/founder/tickets', label: 'Support Tickets', icon: 'inbox' },
   { href: '/founder/disputes', label: 'Dispute Center', icon: 'scale' },
   { href: '/founder/payments', label: 'Payment Center', icon: 'card' },
+  { href: '/founder/projects', label: 'Open Projects', icon: 'inbox' },
   { href: '/founder/users', label: 'Users', icon: 'users' },
   { href: '/founder/fraud', label: 'Fraud & Risk', icon: 'shield' },
   { href: '/founder/system', label: 'System Health', icon: 'pulse' },

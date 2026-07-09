@@ -15,6 +15,10 @@ export enum NotificationType {
   SERVICE_PURCHASED = 'service_purchased',
   AI_ASSET_PURCHASED = 'asset_purchased',
   SUPPORT_TICKET = 'support_ticket',
+  OPEN_PROJECT_PROPOSAL = 'open_project_proposal',
+  OPEN_PROJECT_HIRED = 'open_project_hired',
+  OPEN_PROJECT_PROPOSAL_REJECTED = 'open_project_proposal_rejected',
+  OPEN_PROJECT_QUESTION = 'open_project_question',
 }
 
 export interface NotificationMetadata {

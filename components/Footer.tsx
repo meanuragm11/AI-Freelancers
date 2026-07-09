@@ -50,14 +50,20 @@ export default function Footer() {
         <div>
           <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">Legal</h4>
           <ul className="space-y-3 text-sm font-medium text-slate-400">
-            <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-            <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+            <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link></li>
+            <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+            <li><Link href="/refund-escrow-policy" className="hover:text-white transition-colors">Refund & Escrow Policy</Link></li>
+            <li><Link href="/community-guidelines" className="hover:text-white transition-colors">Community Guidelines</Link></li>
+            <li><Link href="/ai-intellectual-property-policy" className="hover:text-white transition-colors">AI & Intellectual Property Policy</Link></li>
+            <li><Link href="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link></li>
+            <li><Link href="/trust-safety" className="hover:text-white transition-colors">Trust & Safety</Link></li>
           </ul>
         </div>
       </div>
       
       <div className="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">© {new Date().getFullYear()} Zelance Inc. All rights reserved.</p>
+        <a href="mailto:support@zelance.co" className="text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-white transition-colors">support@zelance.co</a>
       </div>
     </footer>
   );

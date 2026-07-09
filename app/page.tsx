@@ -12,6 +12,9 @@ import { AssetCardSkeleton } from '@/components/homepage/AssetCardSkeleton';
 import type { ServiceCardData } from '@/types/marketplace';
 import { pickDisplayableImageUrl } from '@/lib/images';
 import { fetchArenaBuilders } from '@/lib/arena/rankBuilders';
+import { ProjectCard } from '@/components/open-projects/ProjectCard';
+import { ProjectCardSkeleton } from '@/components/open-projects/ProjectCard';
+import { OpenProjectsEscrowSection } from '@/components/homepage/OpenProjectsEscrowSection';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -28,6 +31,9 @@ export default function LandingPage() {
   const [featuredServices, setFeaturedServices] = useState<ServiceCardData[]>([]);
   const [topAssets, setTopAssets] = useState<any[]>([]);
   const [topContributors, setTopContributors] = useState<any[]>([]);
+  const [featuredProjects, setFeaturedProjects] = useState<any[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPlatformData() {
@@ -65,11 +71,17 @@ export default function LandingPage() {
         error,
       }));
 
+      const projectsPromise = fetch('/api/projects?limit=3&sort=newest')
+        .then((r) => (r.ok ? r.json() : { projects: [] }))
+        .then((d) => ({ data: d.projects ?? [], error: null }))
+        .catch((error) => ({ data: null, error }));
+
       // Use Promise.allSettled to handle failures independently
-      const [servicesResult, assetsResult, contributorsResult] = await Promise.allSettled([
+      const [servicesResult, assetsResult, contributorsResult, projectsResult] = await Promise.allSettled([
         servicesPromise,
         assetsPromise,
         contributorsPromise,
+        projectsPromise,
       ]);
 
       // Handle services result
@@ -150,6 +162,15 @@ export default function LandingPage() {
         setContributorsError('Unable to load contributors.');
       }
       setLoadingContributors(false);
+
+      if (projectsResult.status === 'fulfilled') {
+        const { data: projectsData, error: projectsErr } = projectsResult.value;
+        if (projectsErr) setProjectsError('Unable to load open projects.');
+        else setFeaturedProjects(projectsData ?? []);
+      } else {
+        setProjectsError('Unable to load open projects.');
+      }
+      setLoadingProjects(false);
     }
     fetchPlatformData();
   }, []);
@@ -201,9 +222,18 @@ export default function LandingPage() {
           Find the top 1% of <br className="hidden md:block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">AI Engineers.</span>
         </h1>
-        <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-12">
-          Search the global mesh for elite talent, acquire production-ready components, and deploy capital through secure escrow.
+        <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-8">
+          Search elite AI talent, browse open projects, acquire production-ready assets, and deploy capital through secure escrow.
         </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
+          <Link href="/projects/new" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-md transition-colors">
+            Post a Project
+          </Link>
+          <Link href="/projects" className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-sm transition-colors">
+            Browse Projects
+          </Link>
+        </div>
 
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
@@ -264,6 +294,30 @@ export default function LandingPage() {
               featuredServices.map((service) => (
                 <ServiceCard key={service.service_id} service={service} />
               ))
+            )}
+          </div>
+        </section>
+
+        {/* FEATURED OPEN PROJECTS */}
+        <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured Open Projects</h2>
+              <p className="text-slate-500 font-medium">Post your project or submit proposals — hire through escrow when ready.</p>
+            </div>
+            <Link href="/projects" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Projects →</Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {loadingProjects ? (
+              [...Array(3)].map((_, i) => <ProjectCardSkeleton key={i} />)
+            ) : projectsError ? (
+              <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">{projectsError}</div>
+            ) : featuredProjects.length === 0 ? (
+              <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
+                No open projects yet. <Link href="/projects/new" className="text-blue-600 hover:underline">Post the first one →</Link>
+              </div>
+            ) : (
+              featuredProjects.map((p) => <ProjectCard key={p.id} project={p} showBuyer />)
             )}
           </div>
         </section>
@@ -360,31 +414,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="mt-6 bg-white border border-slate-200 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 hover:shadow-xl transition-shadow duration-500">
-              <div className="max-w-xl">
-                <h3 className="text-2xl font-black text-slate-900 mb-3">Secure Collab & Escrow</h3>
-                <p className="text-slate-500 font-medium text-sm mb-6">Lock scope explicitly. Funds are held safely in a Razorpay nodal account until the 72-hour delivery window clears. Flat $5 platform fees. Zero friction.</p>
-                <Link href="/auth?role=buyer" className="text-sm font-bold text-slate-900 hover:text-blue-600 uppercase tracking-widest transition-colors flex items-center gap-2">Post an Open Bounty <span className="text-lg">→</span></Link>
-              </div>
-              <div className="w-full md:w-auto flex items-center gap-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Buyer</span>
-                  <div className="w-12 h-12 bg-white rounded-full shadow flex items-center justify-center text-xl">💼</div>
-                </div>
-                <div className="h-1 w-12 bg-blue-200 rounded-full relative">
-                   <div className="absolute top-0 left-0 h-full bg-blue-500 rounded-full w-full animate-[pulse_2s_ease-in-out_infinite]"></div>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Escrow Lock</span>
-                  <div className="w-16 h-16 bg-blue-100 rounded-full shadow-inner border-2 border-blue-500 flex items-center justify-center text-xl">🔒</div>
-                </div>
-                <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Builder</span>
-                  <div className="w-12 h-12 bg-white rounded-full shadow flex items-center justify-center text-xl">💻</div>
-                </div>
-              </div>
-            </div>
+            <OpenProjectsEscrowSection />
 
           </section>
         </div>

@@ -18,6 +18,10 @@ const TYPE_EMOJI: Record<NotificationType, string> = {
   service_purchased: '🛒',
   asset_purchased: '🤖',
   support_ticket: '🎫',
+  open_project_proposal: '📨',
+  open_project_hired: '🤝',
+  open_project_proposal_rejected: '📭',
+  open_project_question: '❓',
 };
 
 export interface BaseTemplateProps {

@@ -130,6 +130,14 @@ export default function Navbar() {
               Hire AI Expert
             </Link>
           )}
+          <Link href="/projects" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
+            Browse Projects
+          </Link>
+          {currentUser && (
+            <Link href="/projects/new" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
+              Post a Project
+            </Link>
+          )}
           {currentUser && hasPurchases && (
             <Link href="/buyer/dashboard" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
               Manage Purchases
@@ -277,6 +285,8 @@ export default function Navbar() {
             <div className="space-y-4">
               <Link href="/" className="block text-lg font-black text-slate-900">Home</Link>
               {(!currentUser || isBuyerAccount) && <Link href="/buyer/discover" className="block text-lg font-black text-slate-900">Hire AI Experts</Link>}
+              <Link href="/projects" className="block text-lg font-black text-slate-900">Browse Projects</Link>
+              {currentUser && <Link href="/projects/new" className="block text-lg font-black text-slate-900">Post a Project</Link>}
               {currentUser && hasPurchases && <Link href="/buyer/dashboard" className="block text-lg font-black text-slate-900">Manage Purchases</Link>}
               <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">{isBuilderAccount ? 'Builder Workspace' : 'Become AI Expert'}</Link>
             </div>

@@ -110,6 +110,14 @@ function getPrimaryCtaLabel(type: NotificationType) {
       return 'View asset';
     case NotificationType.SUPPORT_TICKET:
       return 'View ticket';
+    case NotificationType.OPEN_PROJECT_PROPOSAL:
+      return 'View proposals';
+    case NotificationType.OPEN_PROJECT_HIRED:
+      return 'Open workspace';
+    case NotificationType.OPEN_PROJECT_PROPOSAL_REJECTED:
+      return 'View proposals';
+    case NotificationType.OPEN_PROJECT_QUESTION:
+      return 'Answer question';
     default:
       return 'View details';
   }
@@ -262,6 +270,10 @@ function renderTemplate(type: NotificationType, data: EmailTemplateData): React.
     [NotificationType.SERVICE_PURCHASED]: ServicePurchasedTemplate,
     [NotificationType.AI_ASSET_PURCHASED]: AssetPurchasedTemplate,
     [NotificationType.SUPPORT_TICKET]: SupportTicketTemplate,
+    [NotificationType.OPEN_PROJECT_PROPOSAL]: ProjectRequestTemplate,
+    [NotificationType.OPEN_PROJECT_HIRED]: ProjectCompletedTemplate,
+    [NotificationType.OPEN_PROJECT_PROPOSAL_REJECTED]: ProjectRequestTemplate,
+    [NotificationType.OPEN_PROJECT_QUESTION]: ProjectRequestTemplate,
   };
 
   return React.createElement(templateMap[type], data);
