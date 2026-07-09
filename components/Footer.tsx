@@ -1,69 +1,60 @@
 "use client";
 
 import Link from 'next/link';
+import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { FooterColumn } from '@/components/footer/FooterColumn';
+import { FooterSocialLinks } from '@/components/footer/FooterSocialLinks';
+import { FooterBottomBar } from '@/components/footer/FooterBottomBar';
+import {
+  companyDescription,
+  companyLinks,
+  legalLinks,
+  platformLinks,
+  resourceLinks,
+  SUPPORT_EMAIL,
+} from '@/components/footer/footerConfig';
 
 export default function Footer() {
   return (
-    <footer className="bg-slate-900 text-slate-300 py-12 border-t border-slate-800">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-8">
-        
-        {/* Brand Column */}
-        <div className="col-span-1 lg:col-span-2">
-          <Link href="/" className="text-2xl font-black tracking-tighter text-white mb-4 block">
-            Zelance<span className="text-blue-500">.</span>
-          </Link>
-          <p className="text-sm font-medium text-slate-400 max-w-sm mb-6">
-            The premier marketplace for the AI economy. Connecting elite engineering talent with founders, startups, and businesses of all sizes to build the future.
-          </p>
-          <div className="flex items-center gap-4">
-            <a href="#" className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors text-white">𝕏</a>
-            <a href="#" className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors text-white">in</a>
-            <a href="#" className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors text-white">GH</a>
+    <footer className="border-t border-slate-800 bg-slate-900 py-10 text-slate-300 dark:border-slate-800/80 dark:bg-slate-950">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-8">
+          <div className="sm:col-span-2 md:col-span-3 lg:col-span-1">
+            <Link
+              href="/"
+              aria-label="Zelance homepage"
+              className="mb-4 inline-block rounded-lg text-2xl font-black tracking-tighter text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-slate-950"
+            >
+              Zelance<span className="text-blue-500">.</span>
+            </Link>
+            <p className="mb-5 max-w-xs text-sm font-medium leading-relaxed text-slate-400 dark:text-slate-500">
+              {companyDescription}
+            </p>
+            <FooterColumn title="Company" links={companyLinks} />
           </div>
+
+          <FooterColumn title="Platform" links={platformLinks} />
+          <FooterColumn title="Resources" links={resourceLinks} />
+          <FooterColumn title="Legal" links={legalLinks} />
+
+          <FooterColumn title="Connect">
+            <FooterSocialLinks />
+          </FooterColumn>
+
+          <FooterColumn title="Contact">
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="group inline-flex items-center gap-2.5 rounded-xl text-sm font-medium text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-slate-950"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-800/80 text-slate-300 transition-all duration-200 group-hover:border-blue-500/50 group-hover:bg-blue-600 group-hover:text-white dark:border-slate-700 dark:bg-slate-800">
+                <EnvelopeIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <span>{SUPPORT_EMAIL}</span>
+            </a>
+          </FooterColumn>
         </div>
 
-        {/* Links Columns */}
-        <div>
-          <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">Platform</h4>
-          <ul className="space-y-3 text-sm font-medium text-slate-400">
-            <li><Link href="/buyer/discover" className="hover:text-white transition-colors">Hire Talent</Link></li>
-            <li><Link href="/buyer/discover?tab=components" className="hover:text-white transition-colors">Asset Store</Link></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">For Builders</h4>
-          <ul className="space-y-3 text-sm font-medium text-slate-400">
-            <li><Link href="/builder/dashboard" className="hover:text-white transition-colors">Apply as Expert</Link></li>
-            <li><Link href="/builder/components/upload" className="hover:text-white transition-colors">Monetize Assets</Link></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">Support</h4>
-          <ul className="space-y-3 text-sm font-medium text-slate-400">
-            <li><Link href="/support" className="hover:text-white transition-colors">Help Center</Link></li>
-            <li><Link href="/support/tickets" className="hover:text-white transition-colors">My Tickets</Link></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">Legal</h4>
-          <ul className="space-y-3 text-sm font-medium text-slate-400">
-            <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link></li>
-            <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-            <li><Link href="/refund-escrow-policy" className="hover:text-white transition-colors">Refund & Escrow Policy</Link></li>
-            <li><Link href="/community-guidelines" className="hover:text-white transition-colors">Community Guidelines</Link></li>
-            <li><Link href="/ai-intellectual-property-policy" className="hover:text-white transition-colors">AI & Intellectual Property Policy</Link></li>
-            <li><Link href="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link></li>
-            <li><Link href="/trust-safety" className="hover:text-white transition-colors">Trust & Safety</Link></li>
-          </ul>
-        </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">© {new Date().getFullYear()} Zelance Inc. All rights reserved.</p>
-        <a href="mailto:support@zelance.co" className="text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-white transition-colors">support@zelance.co</a>
+        <FooterBottomBar />
       </div>
     </footer>
   );

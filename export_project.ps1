@@ -1,11 +1,11 @@
 $outputFile = "project_code.txt"
 
-# Remove old file if it exists
+Remove old file if it exists
 if (Test-Path $outputFile) {
     Remove-Item $outputFile
 }
 
-# Folders to export
+Folders to export
 $includeFolders = @(
     "app",
     "components",
@@ -14,7 +14,7 @@ $includeFolders = @(
     "constants"
 )
 
-# Individual root files to include if they exist
+Individual root files to include if they exist
 $includeFiles = @(
     "middleware.ts",
     "next.config.js",
@@ -29,7 +29,7 @@ $includeFiles = @(
     ".env.example"
 )
 
-# File extensions to include
+File extensions to include
 $extensions = @(
     "*.ts",
     "*.tsx",
