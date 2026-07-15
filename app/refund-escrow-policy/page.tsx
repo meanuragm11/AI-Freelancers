@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Refund & Escrow Policy',
-  description:
-    'Understand Zelance refund eligibility, escrow release conditions, and dispute resolution for marketplace transactions.',
-  path: '/refund-escrow-policy',
-});
+export const metadata = legalPageMetadata.refund;
 
 const LAST_UPDATED = 'July 8, 2026';
 

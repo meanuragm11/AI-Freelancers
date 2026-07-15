@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Community Guidelines',
-  description:
-    'Zelance community standards for respectful collaboration, professional conduct, and safe marketplace interactions.',
-  path: '/community-guidelines',
-});
+export const metadata = legalPageMetadata.community;
 
 const LAST_UPDATED = 'July 8, 2026';
 

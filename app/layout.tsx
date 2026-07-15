@@ -1,37 +1,19 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { GoogleAnalytics } from '@next/third-parties/google';
+import JsonLd from '@/components/seo/JsonLd';
+import { SITE_LANG, THEME_COLOR } from '@/lib/seo/constants';
+import { generateRootMetadata } from '@/lib/seo/metadata';
+import { generateGlobalSchemas } from '@/lib/seo/schema';
 import './globals.css';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 
-export const metadata: Metadata = {
-  metadataBase: new URL('https://zelance.co'),
-  title: {
-    template: '%s | Zelance - The Premium AI Talent Network',
-    default: 'Zelance | Hire Elite AI Engineers & Buy AI Components',
-  },
-  description: 'Zelance is the exclusive marketplace connecting enterprise companies with top 1% AI engineers, prompt designers, and autonomous agent builders.',
-  openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://zelance.com',
-    siteName: 'Zelance',
-    title: 'Zelance | The Premium AI Talent Network',
-    description: 'Hire top 1% AI engineers or monetize your reusable AI architectures on the global marketplace.',
-    images: [
-      {
-        url: 'https://zelance.com/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Zelance Dashboard Preview',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Zelance | Hire Elite AI Engineers',
-    description: 'The exclusive marketplace connecting enterprises with top AI talent.',
-    creator: '@zelancehq',
-  },
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
+export const metadata: Metadata = generateRootMetadata();
+
+export const viewport: Viewport = {
+  themeColor: THEME_COLOR,
 };
 
 export default function RootLayout({
@@ -40,13 +22,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={SITE_LANG} suppressHydrationWarning>
       <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 selection:text-blue-900">
+        <JsonLd data={generateGlobalSchemas()} />
         <div className="flex-1 flex flex-col">
           <Navbar />
           {children}
         </div>
         <Footer />
+        {gaMeasurementId ? <GoogleAnalytics gaId={gaMeasurementId} /> : null}
       </body>
     </html>
   );

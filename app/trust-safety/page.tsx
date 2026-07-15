@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Trust & Safety',
-  description:
-    'Zelance trust and safety practices including fraud prevention, account security, reporting, and platform integrity.',
-  path: '/trust-safety',
-});
+export const metadata = legalPageMetadata.trustSafety;
 
 const LAST_UPDATED = 'July 8, 2026';
 

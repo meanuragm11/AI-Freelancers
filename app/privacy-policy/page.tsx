@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Privacy Policy',
-  description:
-    'Learn how Zelance collects, uses, and protects your personal information across our AI talent marketplace and workspace.',
-  path: '/privacy-policy',
-});
+export const metadata = legalPageMetadata.privacy;
 
 const LAST_UPDATED = 'July 8, 2026';
 

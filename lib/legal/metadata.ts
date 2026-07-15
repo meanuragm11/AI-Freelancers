@@ -1,9 +1,5 @@
 import type { Metadata } from 'next';
-
-function getSiteUrl(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL || 'https://zelance.com';
-  return url.replace(/\/$/, '');
-}
+import { generateSEOMetadata } from '@/lib/seo/metadata';
 
 export function createLegalMetadata({
   title,
@@ -14,25 +10,9 @@ export function createLegalMetadata({
   description: string;
   path: string;
 }): Metadata {
-  const canonical = `${getSiteUrl()}${path}`;
-
-  return {
+  return generateSEOMetadata({
     title,
     description,
-    alternates: {
-      canonical,
-    },
-    openGraph: {
-      title: `${title} | Zelance`,
-      description,
-      url: canonical,
-      type: 'website',
-      siteName: 'Zelance',
-    },
-    twitter: {
-      card: 'summary',
-      title: `${title} | Zelance`,
-      description,
-    },
-  };
+    path,
+  });
 }

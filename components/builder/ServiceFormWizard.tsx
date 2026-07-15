@@ -563,7 +563,7 @@ export default function ServiceFormWizard({
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
               {form.banner_image_url ? (
                 <div className="relative mb-3 aspect-[21/9] overflow-hidden rounded-xl bg-slate-200">
-                  <Image src={form.banner_image_url} fill sizes="100vw" className="object-cover" alt="Banner" />
+                  <Image src={form.banner_image_url} fill sizes="100vw" className="object-cover" alt="Service banner preview" />
                 </div>
               ) : null}
               <input

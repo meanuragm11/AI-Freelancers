@@ -5,10 +5,12 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import FounderShell from '@/components/founder/FounderShell';
 
-export const metadata = {
-  title: 'Founder Command Center | Zelance',
-  robots: { index: false, follow: false },
-};
+import { generateNoIndexMetadata } from '@/lib/seo/metadata';
+
+export const metadata = generateNoIndexMetadata(
+  'Founder Command Center',
+  'Internal Zelance founder administration and operations dashboard.',
+);
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

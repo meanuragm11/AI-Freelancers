@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Terms of Service',
-  description:
-    'Read the Zelance Terms of Service governing marketplace use, escrow payments, and platform policies for buyers and builders.',
-  path: '/terms-of-service',
-});
+export const metadata = legalPageMetadata.terms;
 
 const LAST_UPDATED = 'July 8, 2026';
 

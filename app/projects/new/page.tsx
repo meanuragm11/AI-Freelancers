@@ -1,9 +1,10 @@
 import ProjectPostWizard from '@/components/open-projects/ProjectPostWizard';
+import { generateNoIndexMetadata } from '@/lib/seo/metadata';
 
-export const metadata = {
-  title: 'Post a Project | Zelance',
-  description: 'Post an open project and receive proposals from verified AI experts.',
-};
+export const metadata = generateNoIndexMetadata(
+  'Post a Project',
+  'Post an open project and receive proposals from verified AI experts.',
+);
 
 export default function NewProjectPage() {
   return (

@@ -1,12 +1,7 @@
 import AboutPage from '@/components/about/AboutPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { aboutPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'About Us',
-  description:
-    'Learn about Zelance — the AI-first marketplace connecting businesses with verified AI experts, engineers, and builders through secure, transparent, outcome-focused collaboration.',
-  path: '/about-us',
-});
+export const metadata = aboutPageMetadata;
 
 export default function AboutUsPage() {
   return (

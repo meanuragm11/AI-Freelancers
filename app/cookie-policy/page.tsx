@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'Cookie Policy',
-  description:
-    'Learn how Zelance uses cookies and similar technologies for authentication, analytics, and platform functionality.',
-  path: '/cookie-policy',
-});
+export const metadata = legalPageMetadata.cookie;
 
 const LAST_UPDATED = 'July 8, 2026';
 

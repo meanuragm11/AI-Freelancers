@@ -1,12 +1,7 @@
 import LegalPage from '@/components/legal/LegalPage';
-import { createLegalMetadata } from '@/lib/legal/metadata';
+import { legalPageMetadata } from '@/lib/seo/pages';
 
-export const metadata = createLegalMetadata({
-  title: 'AI & Intellectual Property Policy',
-  description:
-    'Zelance policies on AI-generated work, intellectual property ownership, licensing, and asset marketplace rights.',
-  path: '/ai-intellectual-property-policy',
-});
+export const metadata = legalPageMetadata.aiIp;
 
 const LAST_UPDATED = 'July 8, 2026';
 
