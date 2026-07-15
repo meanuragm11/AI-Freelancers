@@ -116,9 +116,7 @@ export default function Navbar() {
       <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
 
         <Link href="/" aria-label="Zelance Homepage" className="flex items-center gap-2 shrink-0">
-          <span className="text-2xl font-black tracking-tighter text-slate-900">
-            Zelance<span className="text-blue-600">.</span>
-          </span>
+          <Image src="/logo.svg" alt="Zelance Logo" width={140} height={40} priority className="h-8 w-auto object-contain" />
         </Link>
 
         <div className="hidden md:flex items-center justify-center flex-1 gap-10">

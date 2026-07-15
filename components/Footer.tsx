@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { FooterColumn } from '@/components/footer/FooterColumn';
 import { FooterSocialLinks } from '@/components/footer/FooterSocialLinks';
@@ -23,9 +24,9 @@ export default function Footer() {
             <Link
               href="/"
               aria-label="Zelance homepage"
-              className="mb-4 inline-block rounded-lg text-2xl font-black tracking-tighter text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-slate-950"
+              className="mb-4 inline-block rounded-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-slate-950"
             >
-              Zelance<span className="text-blue-500">.</span>
+              <Image src="/logo.svg" alt="Zelance Logo" width={140} height={40} className="h-8 w-auto object-contain" />
             </Link>
             <p className="mb-5 max-w-xs text-sm font-medium leading-relaxed text-slate-400 dark:text-slate-500">
               {companyDescription}

@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://zelance.co'),
   title: {
     template: '%s | Zelance - The Premium AI Talent Network',
     default: 'Zelance | Hire Elite AI Engineers & Buy AI Components',

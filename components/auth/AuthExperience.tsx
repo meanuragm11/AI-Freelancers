@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { clearStaleAuthSession, isStaleAuthSessionError } from "@/lib/auth/session";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const UNIFIED_ROLE = "buyer" as const;
@@ -377,9 +378,9 @@ export function AuthExperience() {
         <div className="relative">
           <Link
             href="/"
-            className="inline-flex items-baseline text-xl font-semibold tracking-tight text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded"
+            className="inline-flex items-baseline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded"
           >
-            Zelance<span className="text-blue-400">.</span>
+            <Image src="/logo.svg" alt="Zelance Logo" width={140} height={40} priority className="h-8 w-auto object-contain" />
           </Link>
         </div>
 
@@ -432,9 +433,9 @@ export function AuthExperience() {
             <div className="mb-8 lg:hidden">
               <Link
                 href="/"
-                className="inline-flex items-baseline text-lg font-semibold tracking-tight text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                className="inline-flex items-baseline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
               >
-                Zelance<span className="text-blue-600">.</span>
+                <Image src="/logo.svg" alt="Zelance Logo" width={140} height={40} priority className="h-8 w-auto object-contain" />
               </Link>
             </div>
 
