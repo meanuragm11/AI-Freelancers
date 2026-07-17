@@ -1,26 +1,69 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ProjectCard, ProjectCardSkeleton } from '@/components/open-projects/ProjectCard';
+import { BuyerProjectCard, BuyerProjectCardSkeleton } from '@/components/open-projects/BuyerProjectCard';
 import { EmptyProjectsState } from '@/components/open-projects/EmptyStates';
 
+const PAGE_SIZE = 12;
+const FILTERS = ['all', 'draft', 'published', 'hired', 'closed'] as const;
+
 export default function BuyerOpenProjectsPage() {
-  const router = useRouter();
   const [projects, setProjects] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [page, setPage] = useState(0);
+
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        mine: 'true',
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE),
+      });
+      if (filter !== 'all') params.set('status', filter);
+
+      const res = await fetch(`/api/projects?${params}`);
+      const data = await res.json();
+      setProjects(data.projects ?? []);
+      setTotal(data.total ?? 0);
+    } catch {
+      setProjects([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, page]);
 
   useEffect(() => {
-    fetch('/api/projects?mine=true')
-      .then((r) => (r.ok ? r.json() : { projects: [] }))
-      .then((d) => setProjects(d.projects ?? []))
-      .catch(() => setProjects([]))
-      .finally(() => setLoading(false));
-  }, []);
+    void loadProjects();
+  }, [loadProjects]);
 
-  const filtered = projects.filter((p) => filter === 'all' || p.status === filter);
+  useEffect(() => {
+    setPage(0);
+  }, [filter]);
+
+  const handleClose = async (id: string) => {
+    if (!confirm('Close this project to new proposals?')) return;
+    await fetch(`/api/projects/${id}/close`, { method: 'POST' });
+    void loadProjects();
+  };
+
+  const handleReopen = async (id: string) => {
+    if (!confirm('Reopen this project to new proposals?')) return;
+    await fetch(`/api/projects/${id}/reopen`, { method: 'POST' });
+    void loadProjects();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    void loadProjects();
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -34,30 +77,61 @@ export default function BuyerOpenProjectsPage() {
         </div>
 
         <div className="flex gap-2 mb-6 overflow-x-auto">
-          {['all', 'draft', 'published', 'hired', 'closed'].map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest capitalize ${filter === f ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>{f}</button>
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest capitalize whitespace-nowrap ${filter === f ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}
+            >
+              {f === 'published' ? 'open' : f}
+            </button>
           ))}
         </div>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => <ProjectCardSkeleton key={i} />)}
+            {[...Array(3)].map((_, i) => <BuyerProjectCardSkeleton key={i} />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : projects.length === 0 ? (
           <EmptyProjectsState variant="buyer" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((p) => (
-              <div key={p.id} onClick={() => router.push(`/buyer/open-projects/${p.id}`)} className="cursor-pointer relative">
-                <ProjectCard project={p} />
-                <span className={`absolute top-4 right-4 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                  p.status === 'published' ? 'bg-green-100 text-green-700' :
-                  p.status === 'hired' ? 'bg-blue-100 text-blue-700' :
-                  p.status === 'draft' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'
-                }`}>{p.status}</span>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((p) => (
+                <BuyerProjectCard
+                  key={p.id}
+                  project={p}
+                  onClose={handleClose}
+                  onReopen={handleReopen}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4 mt-8">
+                <button
+                  type="button"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500 disabled:opacity-40"
+                >
+                  Next
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

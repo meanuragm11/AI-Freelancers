@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 
 import { supabase } from '@/lib/supabaseClient';
 import { uploadMarketplaceFile } from '@/lib/storage/upload';

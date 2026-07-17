@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, rateLimitHeaders, rateLimitResponse } from '@/lib/server/rateLimit';
+import { getAuthenticatedUser } from '@/lib/server/supabase';
 
-// Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: Request) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const limit = checkRateLimit(`ai-estimate:${user.id}`, 10, 3_600_000);
+    if (!limit.allowed) return rateLimitResponse(limit);
+
     const { prompt, budget } = await req.json();
 
     if (!prompt || !budget) {
@@ -36,12 +45,11 @@ export async function POST(req: Request) {
 
     const result = await model.generateContent(systemPrompt);
     const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-    
+
     const milestones = JSON.parse(text);
 
-    return NextResponse.json({ milestones });
-
-  } catch (error: any) {
+    return NextResponse.json({ milestones }, { headers: rateLimitHeaders(limit) });
+  } catch (error: unknown) {
     console.error('AI Estimator Error:', error);
     return NextResponse.json({ error: 'Failed to generate milestones' }, { status: 500 });
   }

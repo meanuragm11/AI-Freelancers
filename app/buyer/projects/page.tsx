@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 
 type ProjectStatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
 

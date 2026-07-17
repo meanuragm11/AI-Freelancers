@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { clearStaleAuthSession, isStaleAuthSessionError } from "@/lib/auth/session";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/RemoteImage";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const UNIFIED_ROLE = "buyer" as const;

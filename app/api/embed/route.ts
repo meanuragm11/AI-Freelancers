@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, rateLimitHeaders, rateLimitResponse } from '@/lib/server/rateLimit';
+import { getAuthenticatedUser } from '@/lib/server/supabase';
 
 const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001';
 const DEFAULT_OUTPUT_DIMENSIONS = 768;
@@ -14,6 +16,11 @@ type GeminiEmbeddingResponse = {
 
 export async function POST(req: Request) {
   try {
+    const user = await getAuthenticatedUser();
+    const rateKey = user ? `embed:user:${user.id}` : `embed:ip:${getClientIp(req)}`;
+    const limit = checkRateLimit(rateKey, user ? 60 : 20, user ? 3_600_000 : 60_000);
+    if (!limit.allowed) return rateLimitResponse(limit);
+
     const { text } = await req.json();
 
     if (typeof text !== 'string' || !text.trim()) {
@@ -56,9 +63,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Embedding response was empty' }, { status: 502 });
     }
 
-    return NextResponse.json({ embedding });
+    return NextResponse.json({ embedding }, { headers: rateLimitHeaders(limit) });
   } catch (error) {
-    console.error("Embedding Error:", error);
+    console.error('Embedding Error:', error);
     return NextResponse.json({ error: 'Failed to generate embedding' }, { status: 500 });
   }
 }

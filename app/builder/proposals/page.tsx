@@ -1,38 +1,66 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { EmptyProjectsState } from '@/components/open-projects/EmptyStates';
 
-export default function BuilderProposalsPage() {
+function BuilderProposalsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
+  const loadProposals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/auth'); return; }
+      if (!user) {
+        router.push('/auth');
+        return;
+      }
 
-      const { data, error } = await supabase
-        .from('project_proposals')
-        .select(`
-          *,
-          project:projects(id, title, status, budget_min_usd, budget_max_usd)
-        `)
-        .eq('builder_id', user.id)
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false });
+      const res = await fetch('/api/builder/proposals', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to load proposals');
 
-      if (!error && data) setProposals(data);
+      setProposals(data.proposals ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load proposals');
+      setProposals([]);
+    } finally {
       setLoading(false);
     }
-    load();
   }, [router]);
 
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading…</div>;
+  useEffect(() => {
+    void loadProposals();
+  }, [loadProposals, searchParams]);
+
+  useEffect(() => {
+    const refetchOnFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void loadProposals();
+      }
+    };
+    window.addEventListener('focus', refetchOnFocus);
+    window.addEventListener('visibilitychange', refetchOnFocus);
+    return () => {
+      window.removeEventListener('focus', refetchOnFocus);
+      window.removeEventListener('visibilitychange', refetchOnFocus);
+    };
+  }, [loadProposals]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -44,6 +72,10 @@ export default function BuilderProposalsPage() {
           </div>
           <Link href="/projects" className="bg-blue-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Browse Projects</Link>
         </div>
+
+        {error && (
+          <p className="mb-4 text-sm font-bold text-rose-600">{error}</p>
+        )}
 
         {proposals.length === 0 ? (
           <EmptyProjectsState variant="builder" />
@@ -67,5 +99,13 @@ export default function BuilderProposalsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BuilderProposalsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading…</div>}>
+      <BuilderProposalsContent />
+    </Suspense>
   );
 }

@@ -11,7 +11,7 @@ export const SITE_LOCALE = 'en_US';
 
 export const SITE_LANG = 'en-US';
 
-export const TWITTER_HANDLE = '@zelancehq';
+export const TWITTER_HANDLE = '@zelance_ai';
 
 export const THEME_COLOR = '#111827';
 

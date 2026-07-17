@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { checkRateLimit, getClientIp, rateLimitHeaders, rateLimitResponse } from '@/lib/server/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    const limit = checkRateLimit(`search-intent:${getClientIp(req)}`, 30, 60_000);
+    if (!limit.allowed) return rateLimitResponse(limit);
+
     const { query } = await req.json();
 
     if (!query) {
-      return NextResponse.json({ intent: 'experts' });
+      return NextResponse.json({ intent: 'experts' }, { headers: rateLimitHeaders(limit) });
     }
 
-    // Initialize the AI securely on the server
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    
-    // UPDATED: Switched to the ultra-fast 2.5 Flash-Lite model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const prompt = `You are an ultra-fast search intent router for an AI marketplace. 
     The marketplace has two sections:
@@ -28,17 +29,10 @@ export async function POST(req: Request) {
     const result = await model.generateContent(prompt);
     const response = result.response.text().trim().toLowerCase();
 
-    // Route based on the AI's decision
-    if (response.includes('components')) {
-      return NextResponse.json({ intent: 'components' });
-    } else {
-      return NextResponse.json({ intent: 'experts' });
-    }
-
+    const intent = response.includes('components') ? 'components' : 'experts';
+    return NextResponse.json({ intent }, { headers: rateLimitHeaders(limit) });
   } catch (error) {
-    console.error("AI Intent Classification Error:", error);
-    // If the API fails (rate limits, network issue), return a 500 error 
-    // so the frontend knows to instantly trigger the Failsafe.
+    console.error('AI Intent Classification Error:', error);
     return NextResponse.json({ error: 'Classification failed' }, { status: 500 });
   }
 }

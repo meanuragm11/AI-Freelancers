@@ -2,11 +2,7 @@
 
 import React, { memo, useCallback } from "react";
 import type { ServiceCardData } from "@/types/marketplace";
-import {
-  ServiceCardShell,
-  serviceCardPrimaryButtonClass,
-  serviceCardSecondaryButtonClass,
-} from "@/components/service-cards/ServiceCardShell";
+import { ServiceBrowseCard } from "@/components/service-cards/ServiceBrowseCard";
 
 type ExpertServiceCardProps = {
   expert: ServiceCardData;
@@ -24,7 +20,6 @@ function ExpertServiceCardComponent({
   const category = expert.category || expert.tech_stack?.[0] || "AI Automation";
   const price = expert.starting_price_usd || 50;
   const coverImage = expert.service_image || expert.banner_url || "";
-  const responseTime = expert.response_time_label || "< 4 hrs";
 
   const handleViewService = useCallback(
     () => onViewService(expert.service_id),
@@ -37,12 +32,11 @@ function ExpertServiceCardComponent({
 
   return (
     <article className="h-full" aria-label={`${expert.service_title} by ${expert.full_name}`}>
-      <ServiceCardShell
+      <ServiceBrowseCard
         index={index}
         category={category}
         coverImage={coverImage}
         serviceTitle={expert.service_title}
-        serviceDescription={expert.service_description}
         fullName={expert.full_name}
         headline={expert.headline}
         avatarUrl={expert.avatar_url}
@@ -50,28 +44,25 @@ function ExpertServiceCardComponent({
         calculatedRating={expert.calculated_rating}
         reviewCount={expert.review_count}
         deliveryTimeDays={expert.delivery_time_days}
-        completedProjects={expert.completed_projects}
         isVerified={expert.is_verified}
         isTopExpert={expert.is_top_expert}
-        isFastResponse={expert.is_fast_response}
-        responseTimeLabel={responseTime}
         footer={
-          <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
             <button
               type="button"
               onClick={handleViewService}
-              aria-label={`View Services by ${expert.full_name}`}
-              className={serviceCardPrimaryButtonClass}
+              aria-label={`View details for ${expert.service_title}`}
+              className="text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1 rounded"
             >
-              View Services
+              View Details →
             </button>
             <button
               type="button"
               onClick={handleRequestProject}
               aria-label={`Request custom project from ${expert.full_name}`}
-              className={serviceCardSecondaryButtonClass}
+              className="text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1 rounded"
             >
-              Request Custom Project
+              Request Project
             </button>
           </div>
         }

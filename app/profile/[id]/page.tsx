@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import Image from "@/components/RemoteImage";
 import { supabase } from "@/lib/supabaseClient";
 import { uploadMarketplaceFile } from "@/lib/storage/upload";
 import {

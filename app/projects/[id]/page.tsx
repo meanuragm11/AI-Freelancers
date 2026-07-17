@@ -10,7 +10,6 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
   const [questions, setQuestions] = useState<any[]>([]);
@@ -23,12 +22,6 @@ export default function ProjectDetailPage() {
     fetch(`/api/projects/${id}/questions`).then((r) => r.json()).then((d) => setQuestions(d.questions ?? []));
   }, [id]);
 
-  const toggleSave = async () => {
-    if (!userId) { router.push('/auth'); return; }
-    const res = await fetch(`/api/projects/${id}/saved`, { method: 'POST' });
-    const d = await res.json();
-    setSaved(d.saved);
-  };
 
   const submitQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +43,18 @@ export default function ProjectDetailPage() {
   const skills = project.skills?.map((s: { skill: string }) => s.skill) ?? [];
   const canPropose = project.status === 'published' && userId && userId !== project.buyer_id;
 
+  const postedAt = project.published_at
+    ? (() => {
+        const days = Math.floor((Date.now() - new Date(project.published_at).getTime()) / 86400000);
+        if (days <= 0) return 'Posted today';
+        if (days === 1) return 'Posted 1 day ago';
+        if (days < 7) return `Posted ${days} days ago`;
+        const weeks = Math.floor(days / 7);
+        if (weeks < 5) return `Posted ${weeks} week${weeks === 1 ? '' : 's'} ago`;
+        return `Posted ${new Date(project.published_at).toLocaleDateString()}`;
+      })()
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="max-w-4xl mx-auto">
@@ -58,7 +63,10 @@ export default function ProjectDetailPage() {
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm mb-6">
           {project.is_featured && <span className="inline-block mb-3 px-2 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black uppercase rounded-md">Featured</span>}
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">{project.title}</h1>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">{project.category} · {project.experience_level} · {project.proposal_count ?? 0} proposals</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">
+            {project.category} · {project.experience_level} · {project.proposal_count ?? 0} proposals
+            {postedAt ? ` · ${postedAt}` : ''}
+          </p>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 p-4 bg-slate-50 rounded-xl">
             <div><p className="text-[9px] font-black uppercase text-slate-400">Budget</p><p className="text-sm font-black">${project.budget_min_usd?.toLocaleString()} – ${project.budget_max_usd?.toLocaleString()}</p></div>
@@ -78,9 +86,6 @@ export default function ProjectDetailPage() {
             {canPropose && (
               <Link href={`/builder/proposals/new?project=${id}`} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md">Submit Proposal</Link>
             )}
-            <button type="button" onClick={toggleSave} className="px-6 py-3 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600">
-              {saved ? 'Saved ✓' : 'Save Project'}
-            </button>
           </div>
         </div>
 

@@ -2,6 +2,18 @@
 
 import Link from 'next/link';
 
+function formatPostedAt(publishedAt?: string | null): string | null {
+  if (!publishedAt) return null;
+  const ms = Date.now() - new Date(publishedAt).getTime();
+  const days = Math.floor(ms / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+  return new Date(publishedAt).toLocaleDateString();
+}
+
 type ProjectCardProps = {
   project: {
     id: string;
@@ -12,16 +24,16 @@ type ProjectCardProps = {
     budget_max_usd?: number | null;
     proposal_count?: number;
     experience_level?: string;
+    expected_duration_days?: number | null;
     published_at?: string | null;
     is_featured?: boolean;
     skills?: Array<{ skill: string }>;
-    buyer?: { full_name?: string; avatar_url?: string | null };
   };
-  showBuyer?: boolean;
 };
 
-export function ProjectCard({ project, showBuyer = false }: ProjectCardProps) {
+export function ProjectCard({ project }: ProjectCardProps) {
   const skills = project.skills?.map((s) => s.skill) ?? [];
+  const postedLabel = formatPostedAt(project.published_at);
 
   return (
     <Link
@@ -57,13 +69,13 @@ export function ProjectCard({ project, showBuyer = false }: ProjectCardProps) {
       )}
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
           <span>{project.proposal_count ?? 0} proposals</span>
-          <span className="capitalize">{project.experience_level}</span>
+          {project.expected_duration_days != null && (
+            <span>{project.expected_duration_days} days</span>
+          )}
+          {postedLabel && <span>{postedLabel}</span>}
         </div>
-        {showBuyer && project.buyer?.full_name && (
-          <span className="text-[10px] font-bold text-slate-500">{project.buyer.full_name}</span>
-        )}
       </div>
     </Link>
   );

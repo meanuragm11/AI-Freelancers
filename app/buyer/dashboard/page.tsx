@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
+import { BuyerProjectCard } from '@/components/open-projects/BuyerProjectCard';
 
 type ProjectStatusLabel = 'Active' | 'Pending' | 'Completed' | 'Disputed' | 'Cancelled';
 
@@ -150,6 +151,7 @@ export default function BuyerDashboard() {
   const [stats, setStats] = useState({ activeProjects: 0, pendingMilestones: 0, escrowBalance: 0, totalSpent: 0, purchasedAssets: 0, savedExperts: 0 });
   const [myServices, setMyServices] = useState<BuyerServiceCard[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [openProjects, setOpenProjects] = useState<any[]>([]);
 
   const loadDashboard = useCallback(async (showInitialLoading = false) => {
       if (showInitialLoading) setLoading(true);
@@ -172,6 +174,10 @@ export default function BuyerDashboard() {
           ...activity,
           date: new Date(activity.date || Date.now()),
         })));
+
+        const projectsRes = await fetch('/api/projects?mine=true&limit=4');
+        const projectsData = await projectsRes.json();
+        setOpenProjects(projectsData.projects ?? []);
 
       } catch (err) {
         console.error("Dashboard Load Error:", err);
@@ -249,6 +255,9 @@ export default function BuyerDashboard() {
           <Link href="/buyer/projects" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
             {Icons.Projects} My Services
           </Link>
+          <Link href="/buyer/open-projects" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Hire} Open Projects
+          </Link>
           <Link href="/buyer/messages" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
             {Icons.Messages} Messages
           </Link>
@@ -287,7 +296,10 @@ export default function BuyerDashboard() {
               <p className="text-sm font-medium text-slate-500 mt-1">Manage your AI projects, freelancers, and escrow balances.</p>
             </div>
             <Link href="/buyer/discover" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Create New Project
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Hire AI Expert
+            </Link>
+            <Link href="/projects/new" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors">
+              Post Open Project
             </Link>
           </div>
 
@@ -477,6 +489,34 @@ export default function BuyerDashboard() {
               </div>
             </div>
 
+          </div>
+
+          {/* --- MY OPEN PROJECTS --- */}
+          <div className="mt-10">
+            <div className="flex justify-between items-end mb-4">
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                My Open Projects
+              </h2>
+              <div className="flex gap-3">
+                <Link href="/projects/new" className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700">Post New</Link>
+                <Link href="/buyer/open-projects" className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:text-blue-800">View All</Link>
+              </div>
+            </div>
+
+            {openProjects.length === 0 ? (
+              <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-10 text-center">
+                <p className="text-sm font-black text-slate-900 mb-1">No open projects posted</p>
+                <p className="text-xs font-medium text-slate-500 mb-4">Post a project and receive proposals from verified AI experts.</p>
+                <Link href="/projects/new" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Post a Project</Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {openProjects.map((p) => (
+                  <BuyerProjectCard key={p.id} project={p} compact />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>

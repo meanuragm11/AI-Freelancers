@@ -121,8 +121,36 @@ export const PROJECT_WIZARD_STEPS = [
   { id: 4, label: 'Review' },
 ] as const;
 
+export const PROPOSAL_ATTACHMENT_ACCEPT =
+  '.pdf,.doc,.docx,.ppt,.pptx,.zip,.png,.jpg,.jpeg,.mp4';
+
+export type ProposalExtras = {
+  _kind: 'proposal_extras';
+  highlighted_portfolio_project_id?: string;
+  highlighted_work_ids?: string[];
+};
+
+export function buildProposalExtrasPayload(extras: {
+  highlighted_portfolio_project_id?: string | null;
+  highlighted_work_ids?: string[];
+}): ProposalExtras[] {
+  const hasPortfolio = Boolean(extras.highlighted_portfolio_project_id);
+  const hasWork = (extras.highlighted_work_ids?.length ?? 0) > 0;
+  if (!hasPortfolio && !hasWork) return [];
+
+  const payload: ProposalExtras = { _kind: 'proposal_extras' };
+  if (hasPortfolio && extras.highlighted_portfolio_project_id) {
+    payload.highlighted_portfolio_project_id = extras.highlighted_portfolio_project_id;
+  }
+  if (hasWork && extras.highlighted_work_ids) {
+    payload.highlighted_work_ids = extras.highlighted_work_ids;
+  }
+  return [payload];
+}
+
 export const PROPOSAL_WIZARD_STEPS = [
   { id: 1, label: 'Approach' },
   { id: 2, label: 'Pricing' },
-  { id: 3, label: 'Review' },
+  { id: 3, label: 'Highlights' },
+  { id: 4, label: 'Review' },
 ] as const;

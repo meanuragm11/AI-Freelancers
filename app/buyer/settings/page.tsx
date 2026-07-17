@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { fetchBuyerBillingHistory, type BillingRecord } from '@/lib/billing/fetchBillingHistory';
 import { uploadMarketplaceFile } from '@/lib/storage/upload';
 import SettingsAlert from '@/components/buyer/settings/SettingsAlert';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 import Link from 'next/link';
 
 type SettingsTab = 'profile' | 'billing' | 'security' | 'notifications';

@@ -1,3 +1,5 @@
+import { TWITTER_HANDLE } from '@/lib/seo/constants';
+
 export interface FooterLinkItem {
   label: string;
   href: string;
@@ -42,21 +44,18 @@ export const bottomBarLinks: FooterLinkItem[] = [
   { label: 'Cookies', href: '/cookie-policy' },
 ];
 
+const twitterUsername = TWITTER_HANDLE.replace(/^@/, '');
+
 export const socialLinks = [
   {
     label: 'Follow Zelance on X',
-    href: '#',
+    href: `https://x.com/${twitterUsername}`,
     icon: 'x' as const,
   },
   {
     label: 'Connect with Zelance on LinkedIn',
-    href: '#',
+    href: 'https://www.linkedin.com/company/zelance/',
     icon: 'linkedin' as const,
-  },
-  {
-    label: 'View Zelance on GitHub',
-    href: '#',
-    icon: 'github' as const,
   },
 ];
 

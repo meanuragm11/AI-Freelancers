@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import Image from "@/components/RemoteImage";
 import type { Service, ServiceStatus } from "@/types/marketplace";
 import { statusBadgeClass, statusLabel } from "@/lib/services/form";
 

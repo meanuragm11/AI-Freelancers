@@ -5,7 +5,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { getOnlinePresenceState, subscribeToOnlinePresence } from '@/lib/onlinePresenceChannel';
 import { notifyMessageRecipient } from '@/lib/notifyMessageRecipient';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 
 interface MessagingInterfaceProps {
     currentUser: any;

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 import ServiceManager from '@/components/builder/ServiceManager';
 import ExpertOnboardingWizard from '@/components/builder/ExpertOnboardingWizard';
 import PortfolioManager from '@/components/builder/PortfolioManager';

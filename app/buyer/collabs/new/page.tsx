@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 
 // We wrap the main content in a component to safely use useSearchParams
 function ContractForm() {

@@ -1,5 +1,14 @@
 type RateLimitEntry = { count: number; resetAt: number };
 
+/** Client IP from Cloudflare/Vercel proxy headers (first hop in x-forwarded-for). */
+export function getClientIp(req: Request): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'anon'
+  );
+}
+
 const store = new Map<string, RateLimitEntry>();
 
 export type RateLimitResult = {

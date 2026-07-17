@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { FooterColumn } from '@/components/footer/FooterColumn';
 import { FooterSocialLinks } from '@/components/footer/FooterSocialLinks';

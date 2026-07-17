@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import Image from "@/components/RemoteImage";
 import type { CompletedProjectReview } from "@/types/profile";
 import { formatCompletionDate, getInitials } from "@/lib/profile/formatters";
 import { isDisplayableImageUrl } from "@/lib/images";

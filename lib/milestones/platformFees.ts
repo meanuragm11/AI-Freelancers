@@ -4,6 +4,16 @@ export const ORIGINAL_MILESTONE_PLATFORM_FEE_USD = 5;
 export const NEW_MILESTONE_FEE_THRESHOLD_USD = 50;
 export const NEW_MILESTONE_PLATFORM_FEE_USD = 5;
 
+/** Flat platform fee deducted from an open-project proposal bid (escrow original milestone). */
+export function calculateOpenProposalPlatformFee(proposedAmountUsd: number): number {
+  if (proposedAmountUsd <= 0) return 0;
+  return ORIGINAL_MILESTONE_PLATFORM_FEE_USD;
+}
+
+export function builderNetAfterOpenProposalFee(proposedAmountUsd: number): number {
+  return Math.max(0, proposedAmountUsd - calculateOpenProposalPlatformFee(proposedAmountUsd));
+}
+
 const FUNDED_MILESTONE_STATUSES = [
   'funded',
   'in_progress',

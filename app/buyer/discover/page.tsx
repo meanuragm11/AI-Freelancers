@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 import { supabase } from '@/lib/supabaseClient';
 import { ExpertServiceCard } from '@/components/discover/ExpertServiceCard';
 import { ExpertServiceCardSkeleton } from '@/components/discover/ExpertServiceCardSkeleton';
@@ -558,7 +558,7 @@ function DiscoverContent() {
               </div>
 
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-stretch">
                   {[...Array(8)].map((_, i) => <ExpertServiceCardSkeleton key={i} index={i} />)}
                 </div>
               ) : filteredServices.length === 0 ? (
@@ -573,7 +573,7 @@ function DiscoverContent() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-stretch">
                     {fallbackServices.map((expert, idx) => (
                       <ExpertServiceCard
                         key={expert.service_id}
@@ -587,7 +587,7 @@ function DiscoverContent() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-stretch">
                     {filteredServices.slice(0, visibleExperts).map((expert, idx) => (
                       <ExpertServiceCard
                         key={expert.service_id}

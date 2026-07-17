@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import Image from "next/image";
+import Image from "@/components/RemoteImage";
 import Link from "next/link";
 
 type AssetCardProps = {

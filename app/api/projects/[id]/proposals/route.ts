@@ -10,12 +10,13 @@ import { canSubmitProposal } from '@/lib/open-projects/permissions';
 import { assertProfileCan, ModerationBlockedError } from '@/lib/moderation/checks';
 import type { CreateProposalInput } from '@/lib/open-projects/types';
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
     const supabase = await createSupabaseServerClient();
     const project = await getProjectById(supabase, id);
 
@@ -24,8 +25,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const proposals = await listProjectProposals(supabase, id);
-    return NextResponse.json({ proposals });
+    const result = await listProjectProposals(supabase, id, {
+      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 10,
+      offset: searchParams.get('offset') ? Number(searchParams.get('offset')) : 0,
+    });
+    return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch proposals';
     return NextResponse.json({ error: message }, { status: 500 });

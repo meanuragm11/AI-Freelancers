@@ -20,8 +20,12 @@ export async function GET(req: Request) {
       if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
       const supabase = await createSupabaseServerClient();
-      const projects = await listBuyerProjects(supabase, user.id);
-      return NextResponse.json({ projects });
+      const result = await listBuyerProjects(supabase, user.id, {
+        limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 12,
+        offset: searchParams.get('offset') ? Number(searchParams.get('offset')) : 0,
+        status: searchParams.get('status') ?? undefined,
+      });
+      return NextResponse.json(result);
     }
 
     const limit = checkRateLimit(`projects-browse:${req.headers.get('x-forwarded-for') ?? 'anon'}`, 60, 60000);

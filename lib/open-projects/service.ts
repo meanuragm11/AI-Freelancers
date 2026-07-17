@@ -16,6 +16,23 @@ const PROJECT_SELECT = `
   buyer:profiles_public!buyer_id(id, full_name, avatar_url)
 `;
 
+const PUBLIC_PROJECT_SELECT = `
+  *,
+  skills:project_skills(skill),
+  attachments:project_attachments(id, file_url, file_name, file_type)
+`;
+
+export function sanitizeProjectForPublicView<T extends { buyer_id?: string; buyer?: unknown }>(
+  project: T,
+  viewerId?: string | null
+): Omit<T, 'buyer'> {
+  if (viewerId && project.buyer_id === viewerId) {
+    return project;
+  }
+  const { buyer: _buyer, ...rest } = project;
+  return rest;
+}
+
 export async function createProject(
   supabase: SupabaseClient,
   buyerId: string,
@@ -186,6 +203,28 @@ export async function closeProject(
   return project as OpenProject;
 }
 
+export async function reopenProject(
+  supabase: SupabaseClient,
+  projectId: string,
+  buyerId: string
+): Promise<OpenProject> {
+  const { data: project, error } = await supabase
+    .from('projects')
+    .update({
+      status: 'published',
+      closed_at: null,
+      published_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+    .eq('buyer_id', buyerId)
+    .eq('status', 'closed')
+    .select()
+    .single();
+
+  if (error) throw error;
+  return project as OpenProject;
+}
+
 export async function browseProjects(
   supabase: SupabaseClient,
   filters: BrowseProjectsFilters = {}
@@ -195,7 +234,7 @@ export async function browseProjects(
 
   let query = supabase
     .from('projects')
-    .select(PROJECT_SELECT, { count: 'exact' })
+    .select(PUBLIC_PROJECT_SELECT, { count: 'exact' })
     .eq('status', 'published')
     .is('deleted_at', null);
 
@@ -335,22 +374,30 @@ export async function createProposal(
 
 export async function listProjectProposals(
   supabase: SupabaseClient,
-  projectId: string
+  projectId: string,
+  options: { limit?: number; offset?: number } = {}
 ) {
-  const { data, error } = await supabase
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+
+  const { data, error, count } = await supabase
     .from('project_proposals')
-    .select(`
+    .select(
+      `
       *,
       builder:profiles_public!builder_id(id, full_name, avatar_url, headline, average_rating, is_verified),
       attachments:proposal_attachments(id, file_url, file_name, file_type)
-    `)
+    `,
+      { count: 'exact' }
+    )
     .eq('project_id', projectId)
     .is('deleted_at', null)
     .neq('status', 'draft')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return data ?? [];
+  return { proposals: data ?? [], total: count ?? 0 };
 }
 
 export async function listBuilderProposals(supabase: SupabaseClient, builderId: string) {
@@ -497,16 +544,102 @@ export async function answerProjectQuestion(
   return data;
 }
 
-export async function listBuyerProjects(supabase: SupabaseClient, buyerId: string) {
-  const { data, error } = await supabase
+export async function listBuyerProjects(
+  supabase: SupabaseClient,
+  buyerId: string,
+  options: { limit?: number; offset?: number; status?: string } = {}
+) {
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+
+  let query = supabase
     .from('projects')
-    .select(PROJECT_SELECT)
+    .select(PROJECT_SELECT, { count: 'exact' })
     .eq('buyer_id', buyerId)
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
 
+  if (options.status && options.status !== 'all') {
+    query = query.eq('status', options.status);
+  }
+
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
   if (error) throw error;
-  return data ?? [];
+  return { projects: data ?? [], total: count ?? 0 };
+}
+
+export async function getProjectActivity(
+  supabase: SupabaseClient,
+  projectId: string,
+  buyerId: string
+) {
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id, title, status, created_at, published_at, closed_at, hired_proposal_id, buyer_id')
+    .eq('id', projectId)
+    .eq('buyer_id', buyerId)
+    .maybeSingle();
+
+  if (!project) return [];
+
+  const events: Array<{ id: string; type: string; label: string; date: string; detail?: string }> = [];
+
+  events.push({
+    id: 'created',
+    type: 'posted',
+    label: 'Project created',
+    date: project.created_at,
+  });
+
+  if (project.published_at) {
+    events.push({
+      id: 'published',
+      type: 'published',
+      label: 'Project published',
+      date: project.published_at,
+    });
+  }
+
+  const { data: proposals } = await supabase
+    .from('project_proposals')
+    .select('id, status, created_at, builder:profiles_public!builder_id(full_name)')
+    .eq('project_id', projectId)
+    .is('deleted_at', null)
+    .neq('status', 'draft')
+    .order('created_at', { ascending: true });
+
+  for (const p of proposals ?? []) {
+    const builder = p.builder as { full_name?: string } | null;
+    events.push({
+      id: `proposal-${p.id}`,
+      type: 'proposal',
+      label: 'Proposal received',
+      date: p.created_at,
+      detail: builder?.full_name ?? undefined,
+    });
+    if (p.status === 'accepted') {
+      events.push({
+        id: `accepted-${p.id}`,
+        type: 'accepted',
+        label: 'Builder hired',
+        date: p.created_at,
+        detail: builder?.full_name ?? undefined,
+      });
+    }
+  }
+
+  if (project.closed_at) {
+    events.push({
+      id: 'closed',
+      type: 'closed',
+      label: project.status === 'hired' ? 'Project closed (hired)' : 'Project closed',
+      date: project.closed_at,
+    });
+  }
+
+  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function softDeleteProject(

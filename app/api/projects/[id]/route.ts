@@ -6,6 +6,7 @@ import {
 } from '@/lib/server/supabase';
 import {
   getProjectById,
+  sanitizeProjectForPublicView,
   softDeleteProject,
   updateProject,
 } from '@/lib/open-projects/service';
@@ -28,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       void incrementProjectViews(admin, id, user?.id);
     }
 
-    return NextResponse.json({ project });
+    return NextResponse.json({ project: sanitizeProjectForPublicView(project, user?.id) });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch project';
     return NextResponse.json({ error: message }, { status: 500 });

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/RemoteImage';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { ServiceCard } from '@/components/homepage/ServiceCard';
@@ -279,9 +279,9 @@ export default function LandingPage() {
             <Link href="/buyer/discover?tab=experts" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Services →</Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-stretch">
             {loadingServices ? (
-              [...Array(4)].map((_, i) => <ServiceCardSkeleton key={i} index={i} />)
+              [...Array(6)].map((_, i) => <ServiceCardSkeleton key={i} index={i} />)
             ) : servicesError ? (
               <div className="col-span-full py-8 text-center text-slate-400 text-sm font-bold border border-slate-200 rounded-3xl bg-white/50">
                 {servicesError}
@@ -317,7 +317,7 @@ export default function LandingPage() {
                 No open projects yet. <Link href="/projects/new" className="text-blue-600 hover:underline">Post the first one →</Link>
               </div>
             ) : (
-              featuredProjects.map((p) => <ProjectCard key={p.id} project={p} showBuyer />)
+              featuredProjects.map((p) => <ProjectCard key={p.id} project={p} />)
             )}
           </div>
         </section>
