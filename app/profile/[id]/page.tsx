@@ -445,14 +445,14 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         </div>
 
         {/* Tab nav */}
-        <nav className="sticky top-16 sm:top-20 z-20 mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-sm backdrop-blur-md -mx-1 px-1">
+        <nav className="sticky top-0 z-20 mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-sm backdrop-blur-md">
           <div className="flex min-w-max gap-1">
             {tabs.filter((t) => t.show).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => switchTab(tab.id)}
-                className={`rounded-xl px-4 py-2.5 min-h-[44px] text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                className={`rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab.id
                     ? "bg-slate-900 text-white shadow-sm"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"

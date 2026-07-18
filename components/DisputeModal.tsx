@@ -25,8 +25,8 @@ export default function DisputeModal({
   showOpenDisputeForm = true,
 }: DisputeModalProps) {
   return (
-    <div className="modal-overlay">
-      <div className="modal-panel bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 shrink-0">
           <div>
             <h3 className="text-lg font-black text-slate-900">{title}</h3>

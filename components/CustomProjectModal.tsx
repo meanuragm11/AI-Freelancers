@@ -111,8 +111,8 @@ export default function CustomProjectModal({
   };
 
   return (
-    <div className="modal-overlay animate-in fade-in">
-      <div className="modal-panel bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[96dvh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center shrink-0">
           <div>
             <h3 className="text-lg font-black text-slate-900">Request Custom Project</h3>

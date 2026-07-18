@@ -253,8 +253,8 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
   const isFree = pricingMode === "free" || Number(service.starting_price_usd) === 0;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden">
-      <div className="mx-auto max-w-6xl space-y-6 sm:space-y-8 min-w-0">
+    <main className="min-h-screen bg-slate-50 px-6 py-10">
+      <div className="mx-auto max-w-6xl space-y-8">
         <button
           type="button"
           onClick={() => router.back()}
@@ -264,7 +264,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
         </button>
 
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="relative h-44 sm:h-56 bg-slate-100">
+          <div className="relative h-56 bg-slate-100">
             {banner ? (
               <Image src={banner} fill sizes="100vw" className="object-cover" alt={service.title} />
             ) : (
@@ -274,8 +274,8 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent" />
             {builder && (
-              <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="relative h-12 w-12 sm:h-16 sm:w-16 overflow-hidden rounded-full border-4 border-white bg-white shrink-0">
+              <div className="absolute bottom-6 left-6 flex items-center gap-4">
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border-4 border-white bg-white">
                   {builder.avatar_url ? (
                     <Image src={builder.avatar_url} fill sizes="64px" className="object-cover" alt={builderDisplayName} />
                   ) : (
@@ -284,8 +284,8 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
                     </div>
                   )}
                 </div>
-                <div className="text-white min-w-0">
-                  <p className="text-lg sm:text-xl font-black truncate">{builderDisplayName}</p>
+                <div className="text-white">
+                  <p className="text-xl font-black">{builderDisplayName}</p>
                   <RecognitionBadgeList badges={builderBadges} size="sm" className="mt-1" />
                   <p className="text-sm text-slate-200">{builder.headline}</p>
                 </div>
@@ -293,13 +293,13 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
             )}
           </div>
 
-          <div className="grid gap-6 sm:gap-8 p-4 sm:p-6 md:p-8 lg:grid-cols-[1.6fr_0.8fr]">
+          <div className="grid gap-8 p-8 lg:grid-cols-[1.6fr_0.8fr]">
             <div className="space-y-8">
               <section>
                 <p className="text-xs font-black uppercase tracking-widest text-blue-600">
                   {service.category || "AI Solution"}
                 </p>
-                <h1 className="mt-2 text-2xl sm:text-3xl font-black text-slate-900 break-words">{service.title}</h1>
+                <h1 className="mt-2 text-3xl font-black text-slate-900">{service.title}</h1>
                 <SolutionCapabilityBadges service={service} className="mt-4" />
                 {service.short_description && (
                   <p className="mt-3 text-base font-medium text-slate-700">{service.short_description}</p>
@@ -425,7 +425,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
               )}
             </div>
 
-            <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <aside className="space-y-4">
               {builder && (
                 <div className="rounded-3xl border border-slate-200 bg-white p-6">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Builder</p>

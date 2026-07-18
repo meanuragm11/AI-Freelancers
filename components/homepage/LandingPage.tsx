@@ -135,16 +135,16 @@ export default function LandingPage() {
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
       <div className="absolute top-[10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
 
-      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-12 md:pt-20 pb-20 flex flex-col items-center text-center relative z-10 min-w-0">
+      <main className="w-full max-w-6xl mx-auto px-6 pt-16 md:pt-20 pb-20 flex flex-col items-center text-center relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-black uppercase tracking-widest mb-8 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
           Zelance Network v1.0 Live
         </div>
-        <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
-          Find the top 1% of <br className="hidden sm:block" />
+        <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
+          Find the top 1% of <br className="hidden md:block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">AI Engineers.</span>
         </h1>
-        <p className="text-base sm:text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-8 px-2">
+        <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-8">
           Search elite AI talent, browse open projects, discover production-ready AI Solutions, and deploy capital through secure escrow.
         </p>
 
@@ -163,7 +163,7 @@ export default function LandingPage() {
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
 
-          <form onSubmit={handleSearch} className="relative flex flex-col sm:flex-row items-stretch sm:items-center bg-white border border-slate-200 rounded-2xl p-2 shadow-xl gap-2 sm:gap-0">
+          <form onSubmit={handleSearch} className="relative flex items-center bg-white border border-slate-200 rounded-2xl p-2 shadow-xl">
             <div className="pl-4 pr-2 text-slate-400">
               {isSearching ? (
                 <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
@@ -179,13 +179,13 @@ export default function LandingPage() {
               disabled={isSearching}
               aria-label="Search AI Solutions or experts"
               placeholder="Try searching 'AI Agent', 'AI Engineer', or 'AI Automation'..."
-              className="flex-1 bg-transparent border-none text-slate-900 font-medium text-base sm:text-lg px-2 py-3 sm:py-4 outline-none placeholder:text-slate-400 disabled:opacity-50 min-w-0"
+              className="flex-1 bg-transparent border-none text-slate-900 font-medium text-lg px-2 py-4 outline-none placeholder:text-slate-400 disabled:opacity-50"
             />
 
             <button
               type="submit"
               disabled={isSearching}
-              className="bg-slate-900 hover:bg-blue-600 disabled:bg-slate-700 text-white px-6 sm:px-8 py-3.5 sm:py-4 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest transition-colors duration-300 w-full sm:w-auto"
+              className="bg-slate-900 hover:bg-blue-600 disabled:bg-slate-700 text-white px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors duration-300"
             >
               {isSearching ? 'Searching...' : 'Search'}
             </button>
@@ -197,7 +197,7 @@ export default function LandingPage() {
         <section className={`${SOLUTION_CARD_SECTION_CLASS} py-10 relative z-10`}>
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Solutions</h2>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Solutions</h2>
               <p className="text-slate-500 font-medium">Top listings by completed orders and recent activity.</p>
             </div>
             <Link href="/buyer/discover" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Solutions →</Link>
