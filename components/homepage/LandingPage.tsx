@@ -128,7 +128,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center relative overflow-x-hidden font-sans w-full">
 
       <div className="absolute inset-0 z-0 h-[600px] w-full bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-40 pointer-events-none"></div>
       <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 to-slate-50 pointer-events-none -z-10"></div>
@@ -148,44 +148,46 @@ export default function LandingPage() {
           Search elite AI talent, browse open projects, discover production-ready AI Solutions, and deploy capital through secure escrow.
         </p>
 
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center mb-10">
-          <Link href="/projects/new" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-md transition-colors">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center mb-10 w-full max-w-3xl px-1">
+          <Link href="/projects/new" className="w-full sm:w-auto text-center bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-3.5 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest shadow-md transition-colors">
             Post Project
           </Link>
-          <Link href="/builder/dashboard?view=services" className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-md transition-colors">
+          <Link href="/builder/dashboard?view=services" className="w-full sm:w-auto text-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 sm:px-8 py-3.5 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest shadow-md transition-colors">
             Publish AI Solution
           </Link>
-          <Link href="/projects" className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 px-8 py-4 rounded-xl text-sm font-black uppercase tracking-widest shadow-sm transition-colors">
+          <Link href="/projects" className="w-full sm:w-auto text-center bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 px-6 sm:px-8 py-3.5 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest shadow-sm transition-colors">
             Open Projects
           </Link>
         </div>
 
-        <div className="w-full max-w-3xl relative group">
+        <div className="w-full max-w-3xl relative group min-w-0 px-1">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
 
-          <form onSubmit={handleSearch} className="relative flex flex-col sm:flex-row items-stretch sm:items-center bg-white border border-slate-200 rounded-2xl p-2 shadow-xl gap-2 sm:gap-0">
-            <div className="pl-4 pr-2 text-slate-400">
-              {isSearching ? (
-                <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              )}
-            </div>
+          <form onSubmit={handleSearch} className="relative flex flex-col bg-white border border-slate-200 rounded-2xl p-2 shadow-xl gap-2 w-full min-w-0">
+            <div className="flex items-center gap-2 min-w-0 w-full">
+              <div className="pl-2 sm:pl-4 text-slate-400 shrink-0">
+                {isSearching ? (
+                  <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                )}
+              </div>
 
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              disabled={isSearching}
-              aria-label="Search AI Solutions or experts"
-              placeholder="Try searching 'AI Agent', 'AI Engineer', or 'AI Automation'..."
-              className="flex-1 bg-transparent border-none text-slate-900 font-medium text-base sm:text-lg px-2 py-3 sm:py-4 outline-none placeholder:text-slate-400 disabled:opacity-50 min-w-0"
-            />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                disabled={isSearching}
+                aria-label="Search AI Solutions or experts"
+                placeholder="Try searching 'AI Agent', 'AI Engineer', or 'AI Automation'..."
+                className="flex-1 bg-transparent border-none text-slate-900 font-medium text-base sm:text-lg px-2 py-3 outline-none placeholder:text-slate-400 disabled:opacity-50 min-w-0 w-full"
+              />
+            </div>
 
             <button
               type="submit"
               disabled={isSearching}
-              className="bg-slate-900 hover:bg-blue-600 disabled:bg-slate-700 text-white px-6 sm:px-8 py-3.5 sm:py-4 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest transition-colors duration-300 w-full sm:w-auto"
+              className="bg-slate-900 hover:bg-blue-600 disabled:bg-slate-700 text-white px-6 py-3.5 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest transition-colors duration-300 w-full shrink-0"
             >
               {isSearching ? 'Searching...' : 'Search'}
             </button>
@@ -193,9 +195,9 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <div className="w-full">
+      <div className="w-full min-w-0">
         <section className={`${SOLUTION_CARD_SECTION_CLASS} py-10 relative z-10`}>
-          <div className="flex justify-between items-end mb-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end mb-10">
             <div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Solutions</h2>
               <p className="text-slate-500 font-medium">Top listings by completed orders and recent activity.</p>
@@ -226,10 +228,10 @@ export default function LandingPage() {
           </SolutionCardGrid>
         </section>
 
-        <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
-          <div className="flex justify-between items-end mb-10">
+        <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 relative z-10 min-w-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end mb-10">
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured Open Projects</h2>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2">Featured Open Projects</h2>
               <p className="text-slate-500 font-medium">Post your project or submit proposals — hire through escrow when ready.</p>
             </div>
             <Link href="/projects" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Projects →</Link>
@@ -249,7 +251,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="w-full max-w-7xl mx-auto px-6 py-10 mb-20 relative z-10">
+        <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 mb-20 relative z-10 min-w-0">
           <OpenProjectsEscrowSection />
         </section>
       </div>

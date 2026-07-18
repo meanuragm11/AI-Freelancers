@@ -275,7 +275,7 @@ function DiscoverContent() {
   const toggleSkill = (skill: string) => setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans pb-20 selection:bg-blue-200 selection:text-blue-900">
+    <div className="min-h-screen bg-slate-50 font-sans pb-20 selection:bg-blue-200 selection:text-blue-900 overflow-x-hidden">
       <div className="bg-slate-900 text-white relative border-b border-slate-800">
         <div className={`${SOLUTION_CARD_SECTION_CLASS} py-12 md:py-16 relative z-10 flex flex-col md:flex-row items-center justify-between gap-8`}>
           <div className="flex-1 w-full text-center md:text-left">
@@ -336,8 +336,8 @@ function DiscoverContent() {
       </div>
 
       <div className={`${SOLUTION_CARD_SECTION_CLASS} py-8`}>
-        <div className="flex flex-col md:flex-row gap-8 mb-6">
-          <aside className={`w-full md:w-64 shrink-0 ${showMobileFilters ? 'block' : 'hidden md:block'}`}>
+        <div className="flex flex-col md:flex-row gap-8 mb-6 min-w-0">
+          <aside className={`w-full md:w-64 shrink-0 min-w-0 ${showMobileFilters ? 'block' : 'hidden md:block'}`}>
             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm md:sticky md:top-24">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Filters</h3>

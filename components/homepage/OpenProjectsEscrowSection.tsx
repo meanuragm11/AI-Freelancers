@@ -37,25 +37,23 @@ const WORKFLOW_STEPS = [
 function EscrowIllustration() {
   return (
     <div
-      className="relative w-full max-w-sm mx-auto md:mx-0"
+      className="relative w-full max-w-sm mx-auto lg:mx-0 min-w-0"
       aria-hidden="true"
     >
-      <div className="absolute -inset-4 bg-gradient-to-br from-blue-50 via-white to-slate-50 rounded-3xl blur-2xl opacity-80" />
+      <div className="absolute -inset-2 sm:-inset-4 bg-gradient-to-br from-blue-50 via-white to-slate-50 rounded-3xl blur-2xl opacity-80" />
 
-      <div className="relative bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-2xl p-8 shadow-[0_8px_40px_-12px_rgba(15,23,42,0.12)]">
-        <div className="flex items-center justify-between gap-3">
-          {/* Buyer */}
-          <div className="flex flex-col items-center gap-3 flex-shrink-0">
+      <div className="relative bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-2xl p-4 sm:p-6 md:p-8 shadow-[0_8px_40px_-12px_rgba(15,23,42,0.12)] min-w-0">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <div className="flex flex-col items-center gap-3 shrink-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
               Client
             </span>
-            <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
-              <BriefcaseIcon className="w-6 h-6 text-slate-600" strokeWidth={1.75} />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
+              <BriefcaseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" strokeWidth={1.75} />
             </div>
           </div>
 
-          {/* Flow line 1 */}
-          <div className="flex-1 flex flex-col items-center gap-1.5 min-w-[2.5rem]">
+          <div className="hidden sm:flex flex-1 flex-col items-center gap-1.5 min-w-0 px-1">
             <div className="h-0.5 w-full bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full w-full bg-gradient-to-r from-slate-200 to-blue-400 rounded-full animate-[pulse_2.5s_ease-in-out_infinite]" />
             </div>
@@ -64,41 +62,46 @@ function EscrowIllustration() {
             </span>
           </div>
 
-          {/* Escrow Lock — center focal point */}
-          <div className="flex flex-col items-center gap-3 flex-shrink-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+          <div className="sm:hidden flex justify-center">
+            <div className="h-8 w-px bg-gradient-to-b from-slate-200 via-blue-300 to-slate-200" />
+          </div>
+
+          <div className="flex flex-col items-center gap-3 shrink-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 text-center">
               Escrow Lock
             </span>
             <div className="relative">
               <div className="absolute inset-0 bg-blue-400/20 rounded-2xl blur-md scale-110" />
-              <div className="relative w-[4.5rem] h-[4.5rem] rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-500/30 shadow-[0_4px_24px_-4px_rgba(59,130,246,0.35)] flex items-center justify-center">
-                <LockClosedIcon className="w-7 h-7 text-blue-600" strokeWidth={1.75} />
+              <div className="relative w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-500/30 shadow-[0_4px_24px_-4px_rgba(59,130,246,0.35)] flex items-center justify-center">
+                <LockClosedIcon className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" strokeWidth={1.75} />
               </div>
             </div>
           </div>
 
-          {/* Flow line 2 */}
-          <div className="flex-1 flex flex-col items-center gap-1.5 min-w-[2.5rem]">
+          <div className="hidden sm:flex flex-1 flex-col items-center gap-1.5 min-w-0 px-1">
             <div className="h-0.5 w-full bg-slate-100 rounded-full" />
             <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">
               Release
             </span>
           </div>
 
-          {/* Builder */}
-          <div className="flex flex-col items-center gap-3 flex-shrink-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <div className="sm:hidden flex justify-center">
+            <div className="h-8 w-px bg-gradient-to-b from-slate-200 via-blue-300 to-slate-200" />
+          </div>
+
+          <div className="flex flex-col items-center gap-3 shrink-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
               AI Expert
             </span>
-            <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
-              <ComputerDesktopIcon className="w-6 h-6 text-slate-600" strokeWidth={1.75} />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
+              <ComputerDesktopIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" strokeWidth={1.75} />
             </div>
           </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <div className="mt-5 sm:mt-6 pt-4 sm:pt-5 border-t border-slate-100 flex items-center justify-center gap-2 px-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center leading-snug">
             Funds held securely until delivery
           </span>
         </div>
@@ -109,13 +112,13 @@ function EscrowIllustration() {
 
 function WorkflowSteps() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {WORKFLOW_STEPS.map((step, index) => {
         const Icon = step.icon;
         const isLast = index === WORKFLOW_STEPS.length - 1;
 
         return (
-          <div key={step.title} className="relative group">
+          <div key={step.title} className="relative group min-w-0">
             {!isLast && (
               <div
                 className="hidden lg:block absolute top-7 left-[calc(50%+1.75rem)] w-[calc(100%-3.5rem+0.75rem)] h-px bg-gradient-to-r from-slate-200 to-slate-100 z-0"
@@ -123,7 +126,7 @@ function WorkflowSteps() {
               />
             )}
 
-            <div className="relative z-10 flex flex-col items-center text-center p-4 sm:p-5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-blue-200/60 hover:bg-white hover:shadow-[0_4px_20px_-8px_rgba(15,23,42,0.1)] transition-all duration-300 h-full">
+            <div className="relative z-10 flex flex-col items-center text-center p-4 sm:p-5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-blue-200/60 hover:bg-white hover:shadow-[0_4px_20px_-8px_rgba(15,23,42,0.1)] transition-all duration-300 h-full min-w-0">
               <div className="w-11 h-11 rounded-xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-center mb-3 group-hover:border-blue-200 group-hover:shadow-md transition-all duration-300">
                 <Icon className="w-5 h-5 text-blue-600" strokeWidth={1.75} />
               </div>
@@ -144,24 +147,23 @@ function WorkflowSteps() {
 export function OpenProjectsEscrowSection() {
   return (
     <section
-      className="mt-6 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-[0_4px_32px_-8px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_48px_-12px_rgba(15,23,42,0.12)] transition-shadow duration-500"
+      className="mt-6 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-[0_4px_32px_-8px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_48px_-12px_rgba(15,23,42,0.12)] transition-shadow duration-500 min-w-0"
       aria-labelledby="open-projects-escrow-heading"
     >
-      <div className="p-8 md:p-12 lg:p-14">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center">
-          {/* Content */}
-          <div className="flex flex-col gap-8">
+      <div className="p-4 sm:p-8 md:p-12 lg:p-14 min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-center min-w-0">
+          <div className="flex flex-col gap-6 sm:gap-8 min-w-0">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest mb-4 border border-blue-100">
                 Secure Hiring
               </div>
               <h3
                 id="open-projects-escrow-heading"
-                className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-4"
+                className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-4"
               >
                 Open Projects &amp; Secure Escrow
               </h3>
-              <p className="text-slate-500 font-medium text-base leading-relaxed max-w-lg">
+              <p className="text-slate-500 font-medium text-sm sm:text-base leading-relaxed max-w-lg">
                 Post your AI project, receive competitive proposals from top AI
                 freelancers &amp; hire the perfect AI expert.
               </p>
@@ -172,14 +174,14 @@ export function OpenProjectsEscrowSection() {
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link
                 href="/projects/new"
-                className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-7 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-colors duration-300 shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-6 sm:px-7 py-3.5 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-colors duration-300 shadow-sm hover:shadow-md w-full sm:w-auto"
               >
                 Post Project
                 <ArrowRightIcon className="w-4 h-4" strokeWidth={2.5} />
               </Link>
               <Link
                 href="/projects"
-                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 px-7 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 px-6 sm:px-7 py-3.5 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 w-full sm:w-auto"
               >
                 Open Projects
                 <ArrowRightIcon className="w-4 h-4 text-slate-400" strokeWidth={2.5} />
@@ -187,7 +189,6 @@ export function OpenProjectsEscrowSection() {
             </div>
           </div>
 
-          {/* Illustration */}
           <EscrowIllustration />
         </div>
       </div>

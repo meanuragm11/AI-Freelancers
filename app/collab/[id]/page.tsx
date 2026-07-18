@@ -197,20 +197,20 @@ export default function GlobalCollabWorkspace() {
   const counterpartyInitials = getDisplayNameInitials(resolveDisplayName(counterparty));
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col overflow-x-hidden">
       
       {/* GLOBAL WORKSPACE HEADER */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 min-w-0">
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <Link 
               href={userRole === 'buyer' ? '/buyer/dashboard' : '/builder/dashboard'} 
               className="w-10 h-10 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-500 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </Link>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                   {collab.status.replace('_', ' ')}
@@ -220,12 +220,12 @@ export default function GlobalCollabWorkspace() {
                 </span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Escrow ID: {collab.id.split('-')[0]}</span>
               </div>
-              <h1 className="text-xl font-black text-slate-900 leading-tight">{collab.title}</h1>
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 leading-tight break-words">{collab.title}</h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <button onClick={handleMessageRoute} className="flex-1 md:flex-none bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+            <button onClick={handleMessageRoute} className="flex-1 md:flex-none bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-5 py-2.5 min-h-[44px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> Message {userRole === 'buyer' ? 'Expert' : 'Client'}
             </button>
             {userRole === 'buyer' && !isCompleted && (
@@ -254,10 +254,10 @@ export default function GlobalCollabWorkspace() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 w-full flex flex-col lg:flex-row gap-8 lg:gap-12 animate-in fade-in duration-500 flex-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full flex flex-col lg:flex-row gap-6 lg:gap-12 animate-in fade-in duration-500 flex-1 min-w-0">
         
         {/* LEFT COLUMN: Navigation & Counterparty Profile */}
-        <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-6">
+        <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-4 sm:gap-6 min-w-0">
           
           {/* Counterparty Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
@@ -283,34 +283,34 @@ export default function GlobalCollabWorkspace() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-1 sticky top-28">
-            <button onClick={() => setActiveTab('milestones')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'milestones' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+          <nav className="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 lg:sticky lg:top-28 scrollbar-hide -mx-1 px-1 lg:mx-0 lg:px-0">
+            <button onClick={() => setActiveTab('milestones')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'milestones' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
               Milestones & Escrow
             </button>
-            <button onClick={() => setActiveTab('overview')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+            <button onClick={() => setActiveTab('overview')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Original Brief
             </button>
-            <button onClick={() => setActiveTab('files')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'files' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+            <button onClick={() => setActiveTab('files')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'files' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
               Shared Files
             </button>
             {userRole === 'buyer' && (
-              <button onClick={() => setActiveTab('disputes')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'disputes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+              <button onClick={() => setActiveTab('disputes')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'disputes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 Raise Dispute
                 {hasActiveDispute && <span className="ml-auto w-2 h-2 rounded-full bg-rose-500" />}
               </button>
             )}
             {userRole === 'builder' && (
-              <button onClick={() => setActiveTab('disputes')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'disputes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+              <button onClick={() => setActiveTab('disputes')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'disputes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 Dispute Center
                 {hasActiveDispute && <span className="ml-auto w-2 h-2 rounded-full bg-rose-500" />}
               </button>
             )}
-            <button onClick={() => setActiveTab('refunds')} className={`text-left px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'refunds' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+            <button onClick={() => setActiveTab('refunds')} className={`shrink-0 whitespace-nowrap text-left px-4 sm:px-5 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'refunds' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a4 4 0 00-8 0v2M5 9h14l-1 12H6L5 9z" /></svg>
               Refunds
             </button>
