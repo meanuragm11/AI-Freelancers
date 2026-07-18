@@ -23,10 +23,10 @@ export default function LibraryEmptyState() {
       </p>
 
       <Link
-        href="/buyer/discover?tab=components"
+        href="/buyer/discover"
         className="relative mt-8 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-md transition-colors hover:bg-blue-600"
       >
-        Browse Asset Store
+        Discover AI Solutions
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
         </svg>

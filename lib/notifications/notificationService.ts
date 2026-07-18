@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { formatDisplayName } from '@/lib/display/formatDisplayName';
 import { sendEmailViaResend } from './resend';
 import {
   NotificationType,
@@ -71,6 +72,38 @@ function getMetadataString(
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
 }
 
+function maskMessageNotificationTitle(title: string): string {
+  const match = title.match(/^New message from (.+)$/i);
+  if (match?.[1]) {
+    return `New message from ${formatDisplayName(match[1])}`;
+  }
+  return title;
+}
+
+function maskNotificationPrivacyFields(
+  type: NotificationType,
+  title: string,
+  metadata: SendNotificationParams['metadata']
+): { title: string; metadata: SendNotificationParams['metadata'] } {
+  if (type !== NotificationType.NEW_MESSAGE) {
+    return { title, metadata };
+  }
+
+  const maskedTitle = maskMessageNotificationTitle(title);
+  const senderName = getMetadataString(metadata, 'senderName');
+  if (!senderName) {
+    return { title: maskedTitle, metadata };
+  }
+
+  return {
+    title: maskedTitle,
+    metadata: {
+      ...metadata,
+      senderName: formatDisplayName(senderName),
+    },
+  };
+}
+
 function getDashboardHref(link: string | undefined, metadata: SendNotificationParams['metadata']) {
   const dashboardPath =
     getMetadataString(metadata, 'dashboardPath') ??
@@ -116,8 +149,10 @@ function getPrimaryCtaLabel(type: NotificationType) {
       return 'Open workspace';
     case NotificationType.OPEN_PROJECT_PROPOSAL_REJECTED:
       return 'View proposals';
-    case NotificationType.OPEN_PROJECT_QUESTION:
-      return 'Answer question';
+    case NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_1:
+    case NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_2:
+    case NotificationType.OPEN_PROJECT_AUTO_ARCHIVED:
+      return 'Manage project';
     default:
       return 'View details';
   }
@@ -273,7 +308,10 @@ function renderTemplate(type: NotificationType, data: EmailTemplateData): React.
     [NotificationType.OPEN_PROJECT_PROPOSAL]: ProjectRequestTemplate,
     [NotificationType.OPEN_PROJECT_HIRED]: ProjectCompletedTemplate,
     [NotificationType.OPEN_PROJECT_PROPOSAL_REJECTED]: ProjectRequestTemplate,
-    [NotificationType.OPEN_PROJECT_QUESTION]: ProjectRequestTemplate,
+    [NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_1]: ProjectRequestTemplate,
+    [NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_2]: ProjectRequestTemplate,
+    [NotificationType.OPEN_PROJECT_AUTO_ARCHIVED]: ProjectRequestTemplate,
+    [NotificationType.SYSTEM]: SupportTicketTemplate,
   };
 
   return React.createElement(templateMap[type], data);
@@ -326,12 +364,14 @@ export async function sendNotification(
     type,
     recipientId,
     recipientEmail: providedEmail,
-    title,
+    title: rawTitle,
     message,
     link,
-    metadata = {},
+    metadata: rawMetadata = {},
     skipDbInsert = false,
   } = params;
+
+  const { title, metadata } = maskNotificationPrivacyFields(type, rawTitle, rawMetadata);
 
   const conversationId =
     getMetadataString(metadata, 'conversationId') ?? getMetadataString(metadata, 'collabId');

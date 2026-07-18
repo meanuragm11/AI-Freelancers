@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 import type { ProposalCardPayload, ProposalMilestone } from "@/lib/project-proposals/types";
 
 type ProjectProposalCardProps = {
@@ -163,7 +164,7 @@ export default function ProjectProposalCard({
           </span>
         </div>
         <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-          {payload.proposer.full_name || "Participant"} ·{" "}
+          {formatBuilderName(payload.proposer.full_name) || "Participant"} ·{" "}
           {new Date(payload.negotiation.created_at).toLocaleString()} ·{" "}
           {snapshot.payment_type === "milestone_payment" ? "Milestone Payment" : "Single Payment"}
         </p>

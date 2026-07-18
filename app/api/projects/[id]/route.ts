@@ -6,12 +6,15 @@ import {
 } from '@/lib/server/supabase';
 import {
   getProjectById,
+  getProjectByIdForViewer,
   sanitizeProjectForPublicView,
   softDeleteProject,
   updateProject,
+  getSimilarProjects,
+  incrementProjectViews,
 } from '@/lib/open-projects/service';
 import { canEditProject } from '@/lib/open-projects/permissions';
-import { incrementProjectViews } from '@/lib/open-projects/service';
+import { isProjectPubliclyVisible } from '@/lib/open-projects/activityMonitoring';
 import { validateProjectInput, sanitizeBuilderPreferences } from '@/lib/open-projects/validation';
 import type { CreateProjectInput } from '@/lib/open-projects/types';
 
@@ -19,17 +22,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    const project = await getProjectById(supabase, id);
+    const user = await getAuthenticatedUser();
+    const project = await getProjectByIdForViewer(supabase, id, user?.id);
 
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-    const user = await getAuthenticatedUser();
-    if (project.status === 'published') {
+    if (isProjectPubliclyVisible(project.status)) {
       const admin = createSupabaseAdminClient();
       void incrementProjectViews(admin, id, user?.id);
     }
 
-    return NextResponse.json({ project: sanitizeProjectForPublicView(project, user?.id) });
+    return NextResponse.json({
+      project: sanitizeProjectForPublicView(project, user?.id),
+      similarProjects:
+        isProjectPubliclyVisible(project.status)
+          ? await getSimilarProjects(supabase, id, project.category)
+          : [],
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch project';
     return NextResponse.json({ error: message }, { status: 500 });

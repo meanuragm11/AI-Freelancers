@@ -7,17 +7,17 @@ export function EmptyProjectsState({ variant }: { variant: 'browse' | 'buyer' | 
     browse: {
       title: 'No open projects yet',
       desc: 'Be the first to post a project and hire top AI talent.',
-      cta: { href: '/projects/new', label: 'Post a Project' },
+      cta: { href: '/projects/new', label: 'Post Project' },
     },
     buyer: {
       title: 'No projects posted',
       desc: 'Post your first open project and receive proposals from verified AI experts.',
-      cta: { href: '/projects/new', label: 'Post a Project' },
+      cta: { href: '/projects/new', label: 'Post Project' },
     },
     builder: {
       title: 'No proposals yet',
       desc: 'Browse open projects and submit your first proposal.',
-      cta: { href: '/projects', label: 'Browse Projects' },
+      cta: { href: '/projects', label: 'Open Projects' },
     },
     proposals: {
       title: 'No proposals received',

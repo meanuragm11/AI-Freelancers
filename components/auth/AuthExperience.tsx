@@ -7,6 +7,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "@/components/RemoteImage";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import {
+  peekAuthRedirect,
+  resolvePostAuthDestination,
+  saveAuthRedirect,
+} from "@/lib/auth/postAuthRedirect";
 
 const UNIFIED_ROLE = "buyer" as const;
 const CALLBACK_URL = "/auth/callback";
@@ -138,17 +143,17 @@ export function AuthExperience() {
       }
 
       if (user) {
+        const redirectParam = searchParams.get("redirect");
+        const stored = peekAuthRedirect();
         const { data: profile } = await supabase
           .from("profiles")
           .select("is_freelancer")
           .eq("id", user.id)
           .single();
 
-        if (profile?.is_freelancer) {
-          router.push("/builder/dashboard");
-        } else {
-          router.push("/buyer/dashboard");
-        }
+        const defaultPath = profile?.is_freelancer ? "/builder/dashboard" : "/buyer/dashboard";
+        const destination = resolvePostAuthDestination(redirectParam ?? stored, defaultPath);
+        router.push(destination);
       }
     }
     checkExistingSession();
@@ -199,17 +204,18 @@ export function AuthExperience() {
   };
 
   const routeAfterLogin = async (userId: string) => {
+    const redirectParam = searchParams.get("redirect");
+    if (redirectParam) saveAuthRedirect(redirectParam);
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_freelancer")
       .eq("id", userId)
       .single();
 
-    if (profile?.is_freelancer) {
-      router.push("/builder/dashboard");
-    } else {
-      router.push("/buyer/discover");
-    }
+    const defaultPath = profile?.is_freelancer ? "/builder/dashboard" : "/buyer/discover";
+    const destination = resolvePostAuthDestination(redirectParam, defaultPath);
+    router.push(destination);
   };
 
   const handleGoogleAuth = async () => {
@@ -221,7 +227,13 @@ export function AuthExperience() {
       // caused linkIdentity to run and fail with "sub claim does not exist".
       await clearStaleAuthSession();
 
-      const redirectTo = `${window.location.origin}${CALLBACK_URL}`;
+      const redirectParam = searchParams.get("redirect");
+      if (redirectParam) saveAuthRedirect(redirectParam);
+
+      const callbackQuery = redirectParam
+        ? `?redirect=${encodeURIComponent(redirectParam)}`
+        : "";
+      const redirectTo = `${window.location.origin}${CALLBACK_URL}${callbackQuery}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -413,7 +425,7 @@ export function AuthExperience() {
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs text-blue-300">
                 ✓
               </span>
-              Hire AI experts or publish your AI services
+              Discover experts or publish your AI services
             </li>
           </ul>
         </div>

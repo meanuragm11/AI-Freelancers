@@ -4,12 +4,13 @@ import { publishProject, getProjectById } from '@/lib/open-projects/service';
 import { assertProfileCan, ModerationBlockedError } from '@/lib/moderation/checks';
 import { validateProjectInput } from '@/lib/open-projects/validation';
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
+    const body = (await req.json().catch(() => ({}))) as { acknowledgeDuplicate?: boolean };
     const supabase = await createSupabaseServerClient();
     await assertProfileCan(supabase, user.id, 'publish', 'Your account cannot publish projects.');
 
@@ -33,13 +34,20 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const project = await publishProject(supabase, id, user.id);
-    return NextResponse.json({ project });
+    const { project, moderation } = await publishProject(supabase, id, user.id, {
+      acknowledgeDuplicate: body.acknowledgeDuplicate === true,
+    });
+    return NextResponse.json({ project, moderation });
   } catch (error: unknown) {
     if (error instanceof ModerationBlockedError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     const message = error instanceof Error ? error.message : 'Failed to publish project';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const isDuplicate = message.includes('similar') || message.includes('Duplicate');
+    const isLimit = message.includes('Publishing limit') || message.includes('temporary publishing limit');
+    return NextResponse.json(
+      { error: message, code: isDuplicate ? 'duplicate_detected' : isLimit ? 'buyer_limit' : undefined },
+      { status: isDuplicate || isLimit ? 409 : 500 }
+    );
   }
 }

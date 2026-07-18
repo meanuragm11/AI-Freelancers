@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { formatDisplayName } from "@/lib/display/formatDisplayName";
 import type {
   BuilderProfileView,
   BuilderPublishedComponent,
@@ -115,7 +116,7 @@ export async function fetchBuilderWorkHistory(builderId: string): Promise<Comple
       review: (row.review as string) ?? "",
       created_at: row.created_at as string,
       service_name: service?.title || collab?.title || "Completed Project",
-      buyer_name: buyer?.full_name || "Verified Buyer",
+      buyer_name: buyer?.full_name ? formatDisplayName(buyer.full_name) : "Verified Buyer",
       buyer_avatar_url: buyer?.avatar_url ?? null,
       amount_usd: amount,
       completed_at: collab?.updated_at || (row.created_at as string),

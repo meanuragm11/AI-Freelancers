@@ -1,5 +1,5 @@
-import ArenaLeaderboardView from '@/components/arena/ArenaLeaderboardView';
+import { redirect } from 'next/navigation';
 
-export default function PublicArenaPage() {
-  return <ArenaLeaderboardView backHref="/" backLabel="Back to Home" />;
+export default function LegacyArenaPage() {
+  redirect('/buyer/discover');
 }

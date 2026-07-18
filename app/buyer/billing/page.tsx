@@ -13,7 +13,7 @@ const CreditCardIcon = ({ className }: { className?: string }) => (
 function formatTypeLabel(type: BillingRecord['type']) {
   switch (type) {
     case 'subscription': return 'Subscription';
-    case 'component': return 'Asset Purchase';
+    case 'component': return 'AI Solution Purchase';
     case 'escrow': return 'Escrow Funding';
     case 'invoice': return 'Escrow Invoice';
   }

@@ -2,12 +2,31 @@ import type { ProposalMilestone } from '@/lib/project-proposals/types';
 export { PROJECT_CATEGORIES } from './categories';
 export type { ProjectCategory } from './categories';
 
-export type ProjectStatus = 'draft' | 'published' | 'closed' | 'hired' | 'cancelled';
+export type ProjectStatus =
+  | 'draft'
+  | 'published'
+  | 'receiving_proposals'
+  | 'negotiating'
+  | 'closed'
+  | 'hired'
+  | 'cancelled'
+  | 'archived';
 export type ProjectVisibility = 'public' | 'invite_only' | 'private';
 export type BudgetType = 'fixed' | 'hourly' | 'open';
 export type ExperienceLevel = 'entry' | 'intermediate' | 'expert';
 export type ProjectType = 'one_time' | 'ongoing';
-export type ProposalStatus = 'draft' | 'submitted' | 'shortlisted' | 'accepted' | 'rejected' | 'withdrawn';
+export type ProposalStatus =
+  | 'draft'
+  | 'submitted'
+  | 'pending'
+  | 'shortlisted'
+  | 'negotiating'
+  | 'accepted'
+  | 'rejected'
+  | 'withdrawn'
+  | 'expired'
+  | 'cancelled';
+export type ModerationStatus = 'pending' | 'approved' | 'flagged' | 'rejected';
 
 export type BuilderPreferences = {
   verified_only?: boolean;
@@ -45,8 +64,28 @@ export type OpenProject = {
   published_at: string | null;
   closed_at: string | null;
   deleted_at: string | null;
+  moderation_status?: ModerationStatus;
+  trust_score?: number | null;
+  duplicate_warning_acknowledged_at?: string | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  monitoring_started_at?: string | null;
+  activity_count?: number;
+  long_term_archived_at?: string | null;
   created_at: string;
   updated_at: string;
+  buyer?: {
+    id?: string;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    created_at?: string | null;
+    location?: string | null;
+    verified_buyer?: boolean | null;
+    total_jobs_posted?: number;
+    total_spent_usd?: number;
+  } | null;
+  skills?: Array<{ skill: string }>;
+  attachments?: ProjectAttachment[];
 };
 
 export type ProjectAttachment = {
@@ -67,6 +106,10 @@ export type OpenProjectProposal = {
   payment_type: 'single_payment' | 'milestone_payment';
   proposed_milestones: ProposalMilestone[];
   status: ProposalStatus;
+  first_viewed_at?: string | null;
+  edit_count?: number;
+  current_version?: number;
+  withdrawn_at?: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -110,6 +153,7 @@ export type BrowseProjectsFilters = {
   experience_level?: ExperienceLevel;
   skills?: string[];
   sort?: 'newest' | 'budget_high' | 'budget_low' | 'proposals';
+  featured?: boolean;
   limit?: number;
   offset?: number;
 };

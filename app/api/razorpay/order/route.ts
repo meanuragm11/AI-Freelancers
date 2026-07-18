@@ -98,8 +98,8 @@ function mapTransactionType(transactionType: string) {
   ) {
     return { internal: 'collab_milestone', checkoutType: 'escrow' };
   }
-  if (transactionType === 'component_purchase') {
-    return { internal: 'component_purchase', checkoutType: 'asset' };
+  if (transactionType === 'component_purchase' || transactionType === 'service_purchase') {
+    return { internal: transactionType, checkoutType: 'solution' };
   }
   if (transactionType === 'revision_purchase') {
     return { internal: 'revision_purchase', checkoutType: 'revision' };
@@ -221,10 +221,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Item not found' }, { status: 404 });
       }
       if (component.status !== 'published') {
-        return NextResponse.json({ error: 'This asset is not currently available.' }, { status: 409 });
+        return NextResponse.json({ error: 'This AI Solution is not currently available.' }, { status: 409 });
       }
       if (existingLibrary) {
-        return NextResponse.json({ error: 'Asset is already in your library.' }, { status: 409 });
+        return NextResponse.json({ error: 'AI Solution is already in your library.' }, { status: 409 });
       }
 
       const hasFulfillment =
@@ -233,10 +233,63 @@ export async function POST(req: Request) {
           : Boolean(component.asset_file_path || component.file_url);
 
       if (!hasFulfillment) {
-        return NextResponse.json({ error: 'This asset is missing fulfillment content.' }, { status: 409 });
+        return NextResponse.json({ error: 'This AI Solution is missing fulfillment content.' }, { status: 409 });
       }
 
       const amountUsd = Number(component.price_usd);
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+        return NextResponse.json({ error: 'Invalid item price' }, { status: 400 });
+      }
+
+      platformFee = amountUsd < 20 ? 1 : 5;
+      finalCharge = amountUsd;
+    } else if (internal === 'service_purchase') {
+      const [{ data: service, error: serviceError }, { data: existingLibrary, error: libraryError }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('services')
+            .select(
+              'id, starting_price_usd, pricing_mode, delivery_model, status, fulfillment_payload_text, fulfillment_payload_url, download_file_path'
+            )
+            .eq('id', itemId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('library')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('service_id', itemId)
+            .maybeSingle(),
+        ]);
+
+      if (serviceError) throw serviceError;
+      if (libraryError) throw libraryError;
+      if (!service) {
+        return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+      }
+      if (service.status !== 'published') {
+        return NextResponse.json({ error: 'This AI Solution is not currently available.' }, { status: 409 });
+      }
+      if (service.delivery_model !== 'instant') {
+        return NextResponse.json(
+          { error: 'Collaborative solutions use escrow checkout.' },
+          { status: 409 }
+        );
+      }
+      if (existingLibrary) {
+        return NextResponse.json({ error: 'AI Solution is already in your library.' }, { status: 409 });
+      }
+
+      const hasFulfillment = Boolean(
+        service.fulfillment_payload_text?.trim() ||
+          service.fulfillment_payload_url?.trim() ||
+          service.download_file_path
+      );
+
+      if (!hasFulfillment) {
+        return NextResponse.json({ error: 'This AI Solution is missing fulfillment content.' }, { status: 409 });
+      }
+
+      const amountUsd = Number(service.starting_price_usd);
       if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         return NextResponse.json({ error: 'Invalid item price' }, { status: 400 });
       }

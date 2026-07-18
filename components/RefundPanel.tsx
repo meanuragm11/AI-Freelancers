@@ -29,7 +29,7 @@ type RefundRequest = {
 const STATUS_LABELS: Record<string, string> = {
   requested: 'Requested — Awaiting Builder',
   builder_responded: 'Builder Responded — Awaiting Founder',
-  founder_review: 'Under Founder Review',
+  founder_review: 'Under Zelance Review',
   approved: 'Approved',
   rejected: 'Rejected',
   processing: 'Processing Refund',

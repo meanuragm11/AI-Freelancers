@@ -761,7 +761,7 @@ export default function BuyerSettings() {
               <div className="bg-rose-50 border border-rose-200 rounded-3xl p-8 shadow-sm">
                 <h2 className="text-lg font-black text-rose-900 mb-2">Danger Zone</h2>
                 <p className="text-xs font-medium text-rose-700 mb-6">
-                  Permanently delete your account, active projects, and purchased asset licenses. This action cannot be
+                  Permanently delete your account, active projects, and purchased AI Solution licenses. This action cannot be
                   undone.
                 </p>
                 <button
@@ -798,7 +798,7 @@ export default function BuyerSettings() {
                       [
                         'purchases_email',
                         'Purchases & Receipts',
-                        'Asset purchases, service purchases, invoices, and receipts.',
+                        'AI Solution purchases, service purchases, invoices, and receipts.',
                       ],
                       ['disputes_email', 'Dispute Updates', 'Formal dispute events, evidence requests, and resolutions.'],
                       [

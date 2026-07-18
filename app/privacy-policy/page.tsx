@@ -3,7 +3,7 @@ import { legalPageMetadata } from '@/lib/seo/pages';
 
 export const metadata = legalPageMetadata.privacy;
 
-const LAST_UPDATED = 'July 8, 2026';
+const LAST_UPDATED = 'July 17, 2026';
 
 export default function PrivacyPolicyPage() {
   return (
@@ -41,6 +41,8 @@ export default function PrivacyPolicyPage() {
             <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-8 text-sm leading-7 text-slate-700 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200">
               <p>2. How We Use Your Information</p>
               <p>We use your information to operate the platform, authenticate users, process payments, provide customer support, improve services, detect fraud, send transactional notifications, comply with legal obligations and enhance platform security.</p>
+              <p>2a. Automated Trust & Safety Analysis</p>
+              <p>To protect users and maintain marketplace integrity, Zelance uses automated systems (including Google Gemini AI) to analyze project postings, proposals, and chat messages for fraud, spam, off-platform contact sharing, harassment, and policy violations. This analysis runs server-side only — your content is not exposed to other users through this process. Flagged content may be reviewed by our moderation team. See our Trust & Safety page for details on enforcement and your rights.</p>
               <p>3. Google Sign-In</p>
               <p>If you sign in using Google, Zelance receives only the information you authorize Google to share. Your Google password is never accessible to Zelance.</p>
               <p>4. Payments</p>

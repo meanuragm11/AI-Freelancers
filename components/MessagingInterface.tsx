@@ -6,11 +6,60 @@ import { supabase } from '@/lib/supabaseClient';
 import { getOnlinePresenceState, subscribeToOnlinePresence } from '@/lib/onlinePresenceChannel';
 import { notifyMessageRecipient } from '@/lib/notifyMessageRecipient';
 import Image from '@/components/RemoteImage';
+import { useMessageUnread } from '@/components/messages/MessageUnreadProvider';
+import {
+  formatProfileDisplayName,
+  getDisplayNameInitials,
+  resolveDisplayName,
+} from '@/lib/display/formatDisplayName';
+import RecognitionBadge from '@/components/arena/RecognitionBadge';
+import { fetchBuilderRecognition } from '@/lib/arena/badges/client';
+import type { RecognitionBadgeGrant } from '@/lib/arena/badges/types';
 
 interface MessagingInterfaceProps {
     currentUser: any;
     userRole: 'buyer' | 'builder';
     initialConversationId?: string | null;
+}
+
+interface ConversationRow {
+    id: string;
+    title: string;
+    buyer_id: string;
+    builder_id: string;
+    created_at: string;
+    counterparty?: {
+        full_name?: string | null;
+        avatar_url?: string | null;
+    } | null;
+    latest_message_at?: string;
+}
+
+function sortConversations(
+    rows: ConversationRow[],
+    unreadCounts: Record<string, number>,
+): ConversationRow[] {
+    return [...rows].sort((a, b) => {
+        const aUnread = (unreadCounts[a.id] || 0) > 0 ? 1 : 0;
+        const bUnread = (unreadCounts[b.id] || 0) > 0 ? 1 : 0;
+        if (aUnread !== bUnread) return bUnread - aUnread;
+
+        const aTime = a.latest_message_at || a.created_at;
+        const bTime = b.latest_message_at || b.created_at;
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+}
+
+function getCounterpartyLabel(
+    counterparty?: ConversationRow['counterparty'] | null,
+): string {
+    return formatProfileDisplayName(counterparty);
+}
+
+function getCounterpartyInitials(
+    counterparty?: ConversationRow['counterparty'] | null,
+): string {
+    return getDisplayNameInitials(resolveDisplayName(counterparty));
 }
 
 interface ChatMessage {
@@ -291,11 +340,31 @@ const formatDateGroup = (dateString: string) => {
 };
 
 // --- MAIN INTERFACE ---
+function normalizeConversation(row: Record<string, unknown>): ConversationRow {
+    const counterparty =
+        (row.counterparty as ConversationRow['counterparty']) ??
+        (row.profiles_public as ConversationRow['counterparty']) ??
+        (row.profiles as ConversationRow['counterparty']) ??
+        null;
+
+    return {
+        id: String(row.id),
+        title: String(row.title ?? ''),
+        buyer_id: String(row.buyer_id),
+        builder_id: String(row.builder_id),
+        created_at: String(row.created_at ?? new Date().toISOString()),
+        counterparty,
+        latest_message_at: typeof row.latest_message_at === 'string' ? row.latest_message_at : undefined,
+    };
+}
+
 export default function MessagingInterface({ currentUser, userRole, initialConversationId }: MessagingInterfaceProps) {
+    const { refreshUnreadCount, subscribeToMessages } = useMessageUnread();
     const [loading, setLoading] = useState(true);
-    const [conversations, setConversations] = useState<any[]>([]);
+    const [conversations, setConversations] = useState<ConversationRow[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const [activeCollabId, setActiveCollabId] = useState<string | null>(null);
+    const activeCollabIdRef = useRef<string | null>(null);
     const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     
@@ -320,6 +389,16 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
     const [showFileUploadModal, setShowFileUploadModal] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+    const [headerBadge, setHeaderBadge] = useState<RecognitionBadgeGrant | null>(null);
+
+    useEffect(() => {
+        activeCollabIdRef.current = activeCollabId;
+    }, [activeCollabId]);
+
+    const resortConversations = (
+        rows: ConversationRow[],
+        counts: Record<string, number>,
+    ) => sortConversations(rows, counts);
 
     // 1. FETCH CONVERSATIONS & UNREAD COUNTS
     useEffect(() => {
@@ -327,37 +406,120 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
             const relatedProfileColumn = userRole === 'buyer' ? 'builder_id' : 'buyer_id';
             
             const [collabsRes, unreadRes] = await Promise.all([
-                supabase.from('collabs').select(`id, title, buyer_id, builder_id, profiles_public!${relatedProfileColumn}(full_name, avatar_url)`).eq(userRole === 'buyer' ? 'buyer_id' : 'builder_id', currentUser.id).order('created_at', { ascending: false }),
-                supabase.from('messages').select('collab_id').eq('is_read', false).neq('sender_id', currentUser.id)
+                supabase
+                    .from('collabs')
+                    .select(`id, title, buyer_id, builder_id, created_at, counterparty:profiles_public!${relatedProfileColumn}(full_name, avatar_url)`)
+                    .eq(userRole === 'buyer' ? 'buyer_id' : 'builder_id', currentUser.id)
+                    .order('created_at', { ascending: false }),
+                supabase.from('messages').select('collab_id').eq('is_read', false).neq('sender_id', currentUser.id),
             ]);
 
-            // HARD ERROR CHECK: If Supabase fails to join, we catch it here.
             if (collabsRes.error) {
-                console.error("🚨 Supabase Query Error fetching conversations:", collabsRes.error);
+                console.error('Supabase query error fetching conversations:', collabsRes.error);
             }
 
+            const counts: Record<string, number> = {};
+            unreadRes.data?.forEach((msg) => {
+                counts[msg.collab_id] = (counts[msg.collab_id] || 0) + 1;
+            });
+            setUnreadCounts(counts);
+
             if (collabsRes.data) {
-                setConversations(collabsRes.data);
+                let rows = collabsRes.data.map((row) => normalizeConversation(row as Record<string, unknown>));
+                const collabIds = rows.map((row) => row.id);
+
+                if (collabIds.length > 0) {
+                    const { data: recentMessages } = await supabase
+                        .from('messages')
+                        .select('collab_id, created_at')
+                        .in('collab_id', collabIds)
+                        .order('created_at', { ascending: false });
+
+                    const latestByCollab: Record<string, string> = {};
+                    recentMessages?.forEach((msg) => {
+                        if (!latestByCollab[msg.collab_id]) {
+                            latestByCollab[msg.collab_id] = msg.created_at;
+                        }
+                    });
+
+                    rows = rows.map((row) => ({
+                        ...row,
+                        latest_message_at: latestByCollab[row.id],
+                    }));
+                }
+
+                const sortedRows = resortConversations(rows, counts);
+                setConversations(sortedRows);
+
                 const preferredId =
                     initialConversationId &&
-                    collabsRes.data.some((collab) => collab.id === initialConversationId)
+                    sortedRows.some((collab) => collab.id === initialConversationId)
                         ? initialConversationId
-                        : collabsRes.data[0]?.id ?? null;
+                        : sortedRows[0]?.id ?? null;
                 if (preferredId) {
                     setActiveCollabId(preferredId);
                     if (window.innerWidth < 768) setMobileView('chat');
                 }
             }
 
-            if (unreadRes.data) {
-                const counts: Record<string, number> = {};
-                unreadRes.data.forEach(msg => { counts[msg.collab_id] = (counts[msg.collab_id] || 0) + 1; });
-                setUnreadCounts(counts);
-            }
             setLoading(false);
         }
         loadConversations();
     }, [currentUser.id, userRole, initialConversationId]);
+
+    useEffect(() => {
+        return subscribeToMessages((event) => {
+            const message = event.message as {
+                collab_id?: string;
+                sender_id?: string;
+                created_at?: string;
+                is_read?: boolean;
+            };
+            const collabId = message.collab_id;
+            if (!collabId) return;
+
+            if (event.type === 'insert') {
+                setUnreadCounts((prevCounts) => {
+                    const shouldIncrement =
+                        message.sender_id !== currentUser.id &&
+                        collabId !== activeCollabIdRef.current;
+                    const nextCounts = shouldIncrement
+                        ? { ...prevCounts, [collabId]: (prevCounts[collabId] || 0) + 1 }
+                        : prevCounts;
+
+                    setConversations((prevRows) =>
+                        resortConversations(
+                            prevRows.map((conversation) =>
+                                conversation.id === collabId
+                                    ? {
+                                          ...conversation,
+                                          latest_message_at:
+                                              message.created_at || conversation.latest_message_at,
+                                      }
+                                    : conversation,
+                            ),
+                            nextCounts,
+                        ),
+                    );
+
+                    return nextCounts;
+                });
+                return;
+            }
+
+            if (event.type === 'update') {
+                const previous = event.previous as { is_read?: boolean; sender_id?: string } | undefined;
+                if (previous?.sender_id === currentUser.id) return;
+                if (!previous?.is_read && message.is_read) {
+                    setUnreadCounts((prevCounts) => {
+                        const nextCounts = { ...prevCounts, [collabId]: 0 };
+                        setConversations((prevRows) => resortConversations(prevRows, nextCounts));
+                        return nextCounts;
+                    });
+                }
+            }
+        });
+    }, [currentUser.id, subscribeToMessages]);
 
     useEffect(() => {
         const closeMenu = (e: MouseEvent) => {
@@ -368,6 +530,27 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
         document.addEventListener('click', closeMenu);
         return () => document.removeEventListener('click', closeMenu);
     }, []);
+
+    useEffect(() => {
+        const activeConv = conversations.find((c) => c.id === activeCollabId);
+        if (userRole !== 'buyer' || !activeConv?.builder_id) {
+            setHeaderBadge(null);
+            return;
+        }
+
+        let cancelled = false;
+        fetchBuilderRecognition(activeConv.builder_id)
+            .then((result) => {
+                if (!cancelled) setHeaderBadge(result.primaryBadge);
+            })
+            .catch(() => {
+                if (!cancelled) setHeaderBadge(null);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeCollabId, conversations, userRole]);
 
     const syncOnlineStatusRef = useRef<() => void>(() => {});
 
@@ -417,6 +600,7 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
 
         async function initializeChat() {
             await supabase.from('messages').update({ is_read: true }).eq('collab_id', activeCollabId).neq('sender_id', currentUser.id).eq('is_read', false);
+            void refreshUnreadCount();
             const { data } = await supabase.from('messages').select('*').eq('collab_id', activeCollabId).order('created_at', { ascending: false }).limit(50);
 
             if (isCancelled) return;
@@ -465,7 +649,7 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
             if (messageSub) supabase.removeChannel(messageSub); 
             if (broadcastSub) supabase.removeChannel(broadcastSub);
         };
-    }, [activeCollabId, currentUser.id]);
+    }, [activeCollabId, currentUser.id, refreshUnreadCount]);
 
     const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
@@ -680,15 +864,15 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
                         {conversations.map(c => (
                             <button key={c.id} onClick={() => { setActiveCollabId(c.id); setMobileView('chat'); }} className={`w-full text-left p-5 border-b border-slate-200 flex items-center gap-4 transition-colors ${activeCollabId === c.id ? 'bg-white border-l-4 border-l-blue-600' : 'hover:bg-slate-100 border-l-4 border-transparent'}`}>
                                 <div className="w-12 h-12 rounded-full overflow-hidden relative border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center">
-                                    {c.profiles?.avatar_url ? (
-                                      <Image src={c.profiles.avatar_url} fill sizes="40px" className="object-cover" alt="Avatar" />
+                                    {c.counterparty?.avatar_url ? (
+                                      <Image src={c.counterparty.avatar_url} fill sizes="40px" className="object-cover" alt="Avatar" />
                                     ) : (
-                                      <span className="text-slate-400 text-xs font-bold">{c.profiles?.full_name?.charAt(0) || '?'}</span>
+                                      <span className="text-slate-400 text-xs font-bold">{getCounterpartyInitials(c.counterparty)}</span>
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <p className="text-sm font-black text-slate-900 truncate pr-2">{c.profiles?.full_name || 'Unknown User'}</p>
+                                        <p className="text-sm font-black text-slate-900 truncate pr-2">{getCounterpartyLabel(c.counterparty)}</p>
                                         {unreadCounts[c.id] > 0 && (
                                             <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 shadow-sm">{unreadCounts[c.id]}</span>
                                         )}
@@ -732,14 +916,17 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
                                 <div className="flex items-center gap-4">
                                     <button onClick={() => setMobileView('list')} className="md:hidden text-slate-400 p-2">←</button>
                                     <div className="w-10 h-10 rounded-full overflow-hidden relative border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center">
-                                        {activeConversation?.profiles?.avatar_url ? (
-                                          <Image src={activeConversation.profiles.avatar_url} fill sizes="40px" className="object-cover" alt="Avatar" />
+                                        {activeConversation?.counterparty?.avatar_url ? (
+                                          <Image src={activeConversation.counterparty.avatar_url} fill sizes="40px" className="object-cover" alt="Avatar" />
                                         ) : (
-                                          <span className="text-slate-400 text-xs font-bold">{activeConversation?.profiles?.full_name?.charAt(0) || '?'}</span>
+                                          <span className="text-slate-400 text-xs font-bold">{getCounterpartyInitials(activeConversation?.counterparty)}</span>
                                         )}
                                     </div>
                                     <div className="overflow-hidden">
-                                        <h3 className="text-sm font-black text-slate-900">{activeConversation?.profiles?.full_name || 'Unknown User'}</h3>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="text-sm font-black text-slate-900">{getCounterpartyLabel(activeConversation?.counterparty)}</h3>
+                                            {headerBadge && <RecognitionBadge badge={headerBadge} size="sm" />}
+                                        </div>
                                         {isOtherOnline && (
                                             <div className="flex items-center gap-1.5 mt-0.5">
                                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>

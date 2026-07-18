@@ -3,11 +3,11 @@
 import React, { useEffect, useState } from "react";
 import Image from "@/components/RemoteImage";
 import { uploadMarketplaceFile } from "@/lib/storage/upload";
+import ServicePortfolioPicker from "@/components/builder/ServicePortfolioPicker";
 import {
   EMPTY_SERVICE_FORM,
   SERVICE_CATEGORIES,
   validateServiceForm,
-  type ServiceFormPortfolioProject,
   type ServiceFormState,
 } from "@/lib/services/form";
 import { saveServiceFromForm } from "@/lib/services/saveServiceForm";
@@ -15,9 +15,10 @@ import type { Service } from "@/types/marketplace";
 
 export const SERVICE_WIZARD_STEPS = [
   { id: 1, label: "Overview" },
-  { id: 2, label: "Pricing" },
-  { id: 3, label: "Media" },
-  { id: 4, label: "Portfolio & FAQs" },
+  { id: 2, label: "Commercial Strategy" },
+  { id: 3, label: "Fulfillment" },
+  { id: 4, label: "Media" },
+  { id: 5, label: "Portfolio & FAQs" },
 ] as const;
 
 function ChipInput({
@@ -198,11 +199,11 @@ export default function ServiceFormWizard({
 
   useEffect(() => {
     if (active && !wasActiveRef.current) {
-      setStep(Math.min(4, Math.max(1, initialStep)));
+      setStep(Math.min(5, Math.max(1, initialStep)));
       setErrors([]);
       setDraftServiceId(editingService?.id);
       const baseForm = initialForm ?? EMPTY_SERVICE_FORM;
-      setForm(embedded ? { ...baseForm, portfolioProjects: [] } : baseForm);
+      setForm(embedded ? { ...baseForm, portfolioProjectIds: [] } : baseForm);
     }
     wasActiveRef.current = active;
   }, [active, embedded, initialForm, initialStep, editingService?.id]);
@@ -244,28 +245,6 @@ export default function ServiceFormWizard({
     }
   };
 
-  const updatePortfolio = (index: number, patch: Partial<ServiceFormPortfolioProject>) => {
-    const next = [...form.portfolioProjects];
-    next[index] = { ...next[index], ...patch };
-    updateForm({ portfolioProjects: next });
-  };
-
-  const addPortfolioProject = () => {
-    updateForm({
-      portfolioProjects: [
-        ...form.portfolioProjects,
-        {
-          title: "",
-          short_description: "",
-          detailed_description: "",
-          project_url: "",
-          media_files: [],
-          pendingFiles: [],
-        },
-      ],
-    });
-  };
-
   const buildFormWithCommittedChips = () => {
     const ai_skills = skillsInputRef.current?.commitPending() ?? form.ai_skills;
     const tags = tagsInputRef.current?.commitPending() ?? form.tags;
@@ -273,7 +252,7 @@ export default function ServiceFormWizard({
   };
 
   const prepareFormSnapshot = (snapshot: ServiceFormState) =>
-    embedded ? { ...snapshot, portfolioProjects: [] } : snapshot;
+    embedded ? { ...snapshot, portfolioProjectIds: [] } : snapshot;
 
   const persistDraft = async (formSnapshot: ServiceFormState, closeAfterSave: boolean) => {
     const prepared = prepareFormSnapshot(formSnapshot);
@@ -331,11 +310,11 @@ export default function ServiceFormWizard({
   };
 
   const handleSaveAndNext = async () => {
-    if (step >= 4) return;
+    if (step >= 5) return;
     const formSnapshot = step === 1 ? buildFormWithCommittedChips() : form;
     const saved = await persistDraft(formSnapshot, false);
     if (saved) {
-      setStep((prev) => Math.min(4, prev + 1));
+      setStep((prev) => Math.min(5, prev + 1));
     }
   };
 
@@ -374,12 +353,12 @@ export default function ServiceFormWizard({
         <div className="grid gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Service Title *
+              AI Solution Title *
             </label>
             <input
               value={form.title}
               onChange={(e) => updateForm({ title: e.target.value })}
-              placeholder="e.g., Custom RAG Chatbot for Your Business"
+              placeholder="e.g., Custom RAG Chatbot or Production-Ready Agent Workflow"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
             />
           </div>
@@ -458,80 +437,247 @@ export default function ServiceFormWizard({
       )}
 
       {step === 2 && (
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="space-y-6">
           <div>
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Fixed Price (USD) *
+            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Commercial Strategy *
             </label>
-            <input
-              type="number"
-              min={0}
-              value={form.starting_price_usd}
-              onChange={(e) => updateForm({ starting_price_usd: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
-            />
-            <p className="mt-1 text-[10px] font-medium text-slate-400">Minimum $6 to publish.</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  updateForm({ pricing_mode: "free", starting_price_usd: 0, delivery_model: "instant" })
+                }
+                className={`rounded-2xl border p-4 text-left transition-colors ${
+                  form.pricing_mode === "free"
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-black text-slate-900">Open-Source (Free)</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Instant acquire for buyers. Builds your recognition on Zelance.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateForm({
+                    pricing_mode: "paid",
+                    starting_price_usd: form.starting_price_usd || 150,
+                  })
+                }
+                className={`rounded-2xl border p-4 text-left transition-colors ${
+                  form.pricing_mode === "paid"
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-black text-slate-900">Premium (Paid)</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Razorpay checkout to you. You set the price.
+                </p>
+              </button>
+            </div>
           </div>
+
           <div>
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Delivery Time (Days) *
+            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Delivery Model *
             </label>
-            <input
-              type="number"
-              min={1}
-              value={form.delivery_time_days}
-              onChange={(e) => updateForm({ delivery_time_days: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
-            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => updateForm({ delivery_model: "collaborative" })}
+                className={`rounded-2xl border p-4 text-left transition-colors ${
+                  form.delivery_model === "collaborative"
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-black text-slate-900">Collaborative AI Solution</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Custom delivery with escrow, milestones, and revisions.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => updateForm({ delivery_model: "instant" })}
+                className={`rounded-2xl border p-4 text-left transition-colors ${
+                  form.delivery_model === "instant"
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-black text-slate-900">Instant Digital Delivery</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Ready-to-use AI solutions, downloads, prompts, agents, templates.
+                </p>
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Included Revisions
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={form.included_revisions}
-              onChange={(e) => updateForm({ included_revisions: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
-            />
+
+          <div className="grid gap-5 md:grid-cols-2">
+            {form.pricing_mode === "paid" && (
+              <div>
+                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Price (USD) *
+                </label>
+                <input
+                  type="number"
+                  min={form.delivery_model === "instant" ? 2 : 6}
+                  value={form.starting_price_usd}
+                  onChange={(e) => updateForm({ starting_price_usd: Number(e.target.value) })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+                />
+                <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  Minimum ${form.delivery_model === "instant" ? "2" : "6"} to publish.
+                </p>
+              </div>
+            )}
+            {form.delivery_model === "collaborative" && (
+              <>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Delivery Time (Days) *
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.delivery_time_days}
+                    onChange={(e) => updateForm({ delivery_time_days: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Included Revisions
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.included_revisions}
+                    onChange={(e) => updateForm({ included_revisions: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Extra Revision Price (USD)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.extra_revision_price_usd}
+                    onChange={(e) => updateForm({ extra_revision_price_usd: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+                  />
+                </div>
+              </>
+            )}
           </div>
-          <div>
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Extra Revision Price (USD)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={form.extra_revision_price_usd}
-              onChange={(e) => updateForm({ extra_revision_price_usd: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <ListInput
-              label="What's Included"
-              values={form.whats_included.length ? form.whats_included : [""]}
-              onChange={(whats_included) => updateForm({ whats_included })}
-              placeholder="e.g., Source code delivery"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Requirements From Buyer
-            </label>
-            <textarea
-              value={form.requirements_from_buyer}
-              onChange={(e) => updateForm({ requirements_from_buyer: e.target.value })}
-              rows={4}
-              placeholder="What do you need from the buyer before starting?"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-blue-500"
-            />
-          </div>
+
+          {form.delivery_model === "collaborative" && (
+            <>
+              <div className="md:col-span-2">
+                <ListInput
+                  label="What's Included"
+                  values={form.whats_included.length ? form.whats_included : [""]}
+                  onChange={(whats_included) => updateForm({ whats_included })}
+                  placeholder="e.g., Source code delivery"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Requirements From Buyer
+                </label>
+                <textarea
+                  value={form.requirements_from_buyer}
+                  onChange={(e) => updateForm({ requirements_from_buyer: e.target.value })}
+                  rows={4}
+                  placeholder="What do you need from the buyer before starting?"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-blue-500"
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {step === 3 && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+            <p className="text-xs font-bold text-amber-800">
+              Secure fulfillment content is never shown publicly. Buyers receive access immediately after payment.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Secure Text (Optional)
+            </label>
+            <textarea
+              value={form.fulfillment_payload_text}
+              onChange={(e) => updateForm({ fulfillment_payload_text: e.target.value })}
+              rows={5}
+              placeholder="API keys, prompts, credentials, or instructions — hidden until purchase"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                OR
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Secure URL (Optional)
+            </label>
+            <input
+              value={form.fulfillment_payload_url}
+              onChange={(e) => updateForm({ fulfillment_payload_url: e.target.value })}
+              placeholder="https://private-link.example.com/resource"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Digital Download (Optional)
+            </label>
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+              {(form.existingDownload?.name || form.pendingDownloadFile) && (
+                <p className="mb-2 text-xs font-bold text-slate-700">
+                  {form.pendingDownloadFile?.name ?? form.existingDownload?.name}
+                  {form.pendingDownloadFile ? " (pending upload)" : ""}
+                </p>
+              )}
+              <input
+                type="file"
+                accept=".zip,.pdf,.tar,.gz,.json,.txt,.md"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) updateForm({ pendingDownloadFile: file });
+                }}
+                className="text-xs"
+              />
+              <p className="mt-2 text-[10px] font-medium text-slate-400">
+                Upload ZIP, PDF, or other files. Not accessible before purchase.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -613,106 +759,14 @@ export default function ServiceFormWizard({
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div className="space-y-8">
           {!embedded && (
-            <div>
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">Portfolio / Project Examples</h3>
-                  <p className="text-xs text-slate-500">Show relevant work samples for this service.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addPortfolioProject}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white"
-                >
-                  + Add Project
-                </button>
-              </div>
-              <div className="space-y-4">
-                {form.portfolioProjects.map((project, index) => (
-                  <div key={project.id ?? `new-${index}`} className="rounded-2xl border border-slate-200 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-                        Project {index + 1}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateForm({
-                            portfolioProjects: form.portfolioProjects.filter((_, i) => i !== index),
-                          })
-                        }
-                        className="text-[10px] font-black uppercase text-rose-600"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <input
-                        value={project.title}
-                        onChange={(e) => updatePortfolio(index, { title: e.target.value })}
-                        placeholder="Project title"
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold"
-                      />
-                      <input
-                        value={project.project_url}
-                        onChange={(e) => updatePortfolio(index, { project_url: e.target.value })}
-                        placeholder="Project link (optional)"
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium"
-                      />
-                      <textarea
-                        value={project.short_description}
-                        onChange={(e) => updatePortfolio(index, { short_description: e.target.value })}
-                        placeholder="Short description"
-                        rows={2}
-                        className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                      />
-                      <textarea
-                        value={project.detailed_description}
-                        onChange={(e) => updatePortfolio(index, { detailed_description: e.target.value })}
-                        placeholder="Detailed description"
-                        rows={3}
-                        className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                      />
-                      <div className="md:col-span-2">
-                        <input
-                          type="file"
-                          multiple
-                          onChange={(e) =>
-                            updatePortfolio(index, {
-                              pendingFiles: [...project.pendingFiles, ...Array.from(e.target.files ?? [])],
-                            })
-                          }
-                          className="text-xs"
-                        />
-                        {(project.media_files.length > 0 || project.pendingFiles.length > 0) && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {project.media_files.map((file) => (
-                              <span
-                                key={file.url}
-                                className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600"
-                              >
-                                {file.name}
-                              </span>
-                            ))}
-                            {project.pendingFiles.map((file) => (
-                              <span
-                                key={`${file.name}-${file.size}`}
-                                className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700"
-                              >
-                                {file.name} (pending)
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ServicePortfolioPicker
+              builderId={builderId}
+              selectedIds={form.portfolioProjectIds}
+              onChange={(portfolioProjectIds) => updateForm({ portfolioProjectIds })}
+            />
           )}
 
           <div>
@@ -759,7 +813,7 @@ export default function ServiceFormWizard({
     </>
   );
 
-  const isLastStep = step === 4;
+  const isLastStep = step === 5;
   const showSaveAndNext = embedded ? !isLastStep : true;
   const showPublishService = embedded ? isLastStep : true;
 
@@ -801,7 +855,7 @@ export default function ServiceFormWizard({
             onClick={() => void handleSave(true)}
             className="rounded-xl bg-blue-600 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-50"
           >
-            {saving ? "Publishing..." : "Publish Service"}
+            {saving ? "Publishing..." : "Publish AI Solution"}
           </button>
         )}
       </div>
@@ -821,7 +875,7 @@ export default function ServiceFormWizard({
     <>
       {!hideStepNav && (
         <div className="border-b border-slate-100 px-6 py-4">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
             {SERVICE_WIZARD_STEPS.map((item) => (
               <button
                 key={item.id}

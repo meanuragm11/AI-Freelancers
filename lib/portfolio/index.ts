@@ -8,6 +8,7 @@ export {
   formatPortfolioDate,
   getProjectFullDescription,
   getProjectLinks,
+  hasValidPortfolioProof,
   projectToFormState,
   validatePortfolioForm,
   formToPortfolioInput,
@@ -87,4 +88,28 @@ export async function updatePortfolioProject(id: string, input: PortfolioInput) 
 export async function deletePortfolioProject(id: string) {
   const { error } = await supabase.from("portfolio_projects").delete().eq("id", id);
   if (error) throw error;
+}
+
+/** Link selected profile portfolio projects to a service (single source of truth). */
+export async function syncPortfolioProjectsForService(
+  builderId: string,
+  serviceId: string,
+  selectedProjectIds: string[]
+) {
+  const existing = await listPortfolioProjectsByService(serviceId);
+  const selectedSet = new Set(selectedProjectIds);
+  const existingIds = new Set(existing.map((p) => p.id));
+
+  for (const project of existing) {
+    if (!selectedSet.has(project.id)) {
+      await updatePortfolioProject(project.id, { service_id: null });
+    }
+  }
+
+  for (const projectId of selectedProjectIds) {
+    if (existingIds.has(projectId)) continue;
+    const project = await getPortfolioProject(projectId);
+    if (project.builder_id !== builderId) continue;
+    await updatePortfolioProject(projectId, { service_id: serviceId });
+  }
 }

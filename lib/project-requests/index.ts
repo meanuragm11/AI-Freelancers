@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
+import { formatDisplayName } from "@/lib/display/formatDisplayName";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 import type { ProjectRequest, ProjectRequestStatus } from "@/types/marketplace";
 import { proposalCardMessage } from "@/lib/project-proposals/types";
 import { notifyMessageRecipient } from "@/lib/notifyMessageRecipient";
@@ -154,7 +156,17 @@ export async function listBuilderProjectRequests(builderId: string) {
     .eq("builder_id", builderId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return (data ?? []).map((request) => {
+    const buyer = request.buyer as { full_name?: string | null; avatar_url?: string | null } | null;
+    if (!buyer?.full_name) return request;
+    return {
+      ...request,
+      buyer: {
+        ...buyer,
+        full_name: formatDisplayName(buyer.full_name),
+      },
+    };
+  });
 }
 
 export async function listBuyerProjectRequests(buyerId: string) {
@@ -164,7 +176,17 @@ export async function listBuyerProjectRequests(buyerId: string) {
     .eq("buyer_id", buyerId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return (data ?? []).map((request) => {
+    const builder = request.builder as { full_name?: string | null; avatar_url?: string | null } | null;
+    if (!builder?.full_name) return request;
+    return {
+      ...request,
+      builder: {
+        ...builder,
+        full_name: formatBuilderName(builder.full_name),
+      },
+    };
+  });
 }
 
 export async function updateProjectRequestStatus(id: string, status: ProjectRequestStatus) {

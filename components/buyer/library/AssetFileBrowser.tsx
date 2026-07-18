@@ -14,7 +14,8 @@ export type AssetFileItem = {
 };
 
 type AssetFileBrowserProps = {
-  componentId: string;
+  itemId: string;
+  itemType?: "component" | "service";
   files: AssetFileItem[];
 };
 
@@ -41,26 +42,27 @@ function fileIcon(kind: AssetFileItem["kind"]) {
   );
 }
 
-export default function AssetFileBrowser({ componentId, files }: AssetFileBrowserProps) {
+export default function AssetFileBrowser({ itemId, itemType = "component", files }: AssetFileBrowserProps) {
   const { downloadAsset, securePayload, closeSecurePayload, isDownloading } = useAssetDownload();
+  const target = { itemId, itemType };
 
   if (files.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-        <p className="text-sm font-semibold text-slate-500">No downloadable files are configured for this asset.</p>
+        <p className="text-sm font-semibold text-slate-500">No downloadable files are configured for this AI Solution.</p>
       </div>
     );
   }
 
   const handlePreview = async (file: AssetFileItem) => {
-    await downloadAsset(componentId, file.key);
+    await downloadAsset(target, file.key);
   };
 
   return (
     <>
       <div className="space-y-3">
         {files.map((file) => {
-          const busy = isDownloading(componentId, file.key);
+          const busy = isDownloading(itemId, file.key);
           const sizeLabel = formatFileSize(file.size);
 
           return (
@@ -94,7 +96,7 @@ export default function AssetFileBrowser({ componentId, files }: AssetFileBrowse
                 )}
                 <button
                   type="button"
-                  onClick={() => downloadAsset(componentId, file.key)}
+                  onClick={() => downloadAsset(target, file.key)}
                   disabled={busy}
                   className="rounded-xl bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
                 >

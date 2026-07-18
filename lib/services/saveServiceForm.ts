@@ -1,10 +1,4 @@
-import { uploadMarketplaceFile } from "@/lib/storage/upload";
-import {
-  createPortfolioProject,
-  deletePortfolioProject,
-  listPortfolioProjectsByService,
-  updatePortfolioProject,
-} from "@/lib/portfolio";
+import { syncPortfolioProjectsForService } from "@/lib/portfolio";
 import {
   createService,
   setServiceStatus,
@@ -13,58 +7,52 @@ import {
 import type { Service, ServiceStatus } from "@/types/marketplace";
 import {
   formStateToServiceInput,
-  type ServiceFormPortfolioProject,
   type ServiceFormState,
 } from "@/lib/services/form";
+import { uploadMarketplaceFileWithMetadata } from "@/lib/storage/upload";
 
-async function uploadPortfolioProjectMedia(
+async function resolveDownloadFields(
   builderId: string,
-  project: ServiceFormPortfolioProject
-) {
-  const mediaFiles = [...project.media_files];
-  for (const file of project.pendingFiles) {
-    const url = await uploadMarketplaceFile(builderId, "portfolio", file);
-    mediaFiles.push({ type: file.type, url, name: file.name });
-  }
-  return mediaFiles;
-}
-
-async function syncServicePortfolioProjects(
-  builderId: string,
-  serviceId: string,
-  projects: ServiceFormPortfolioProject[]
-) {
-  const existing = await listPortfolioProjectsByService(serviceId);
-  const keepIds = new Set(projects.filter((p) => p.id).map((p) => p.id as string));
-
-  for (const existingProject of existing) {
-    if (!keepIds.has(existingProject.id)) {
-      await deletePortfolioProject(existingProject.id);
-    }
-  }
-
-  for (const project of projects) {
-    if (!project.title.trim()) continue;
-
-    const media_files = await uploadPortfolioProjectMedia(builderId, project);
-    const projectUrl = project.project_url.trim();
-    const links = projectUrl ? [{ title: "Project", url: projectUrl }] : [];
-    const payload = {
-      title: project.title.trim(),
-      short_description: project.short_description.trim() || null,
-      detailed_description: project.detailed_description.trim() || null,
-      project_url: projectUrl || null,
-      links,
-      media_files,
-      service_id: serviceId,
+  form: ServiceFormState
+): Promise<{
+  download_bucket: string | null;
+  download_file_path: string | null;
+  download_file_name: string | null;
+  download_file_size: number | null;
+  download_content_type: string | null;
+}> {
+  if (form.pendingDownloadFile) {
+    const upload = await uploadMarketplaceFileWithMetadata(
+      builderId,
+      "solution-downloads",
+      form.pendingDownloadFile
+    );
+    return {
+      download_bucket: upload.bucket,
+      download_file_path: upload.path,
+      download_file_name: form.pendingDownloadFile.name,
+      download_file_size: form.pendingDownloadFile.size,
+      download_content_type: form.pendingDownloadFile.type || null,
     };
-
-    if (project.id) {
-      await updatePortfolioProject(project.id, payload);
-    } else {
-      await createPortfolioProject(builderId, payload);
-    }
   }
+
+  if (form.existingDownload?.path) {
+    return {
+      download_bucket: form.existingDownload.bucket,
+      download_file_path: form.existingDownload.path,
+      download_file_name: form.existingDownload.name,
+      download_file_size: form.existingDownload.size,
+      download_content_type: form.existingDownload.content_type,
+    };
+  }
+
+  return {
+    download_bucket: null,
+    download_file_path: null,
+    download_file_name: null,
+    download_file_size: null,
+    download_content_type: null,
+  };
 }
 
 export async function saveServiceFromForm(
@@ -81,7 +69,12 @@ export async function saveServiceFromForm(
       ? undefined
       : "draft";
 
-  const input = formStateToServiceInput(form, status);
+  const downloadFields = await resolveDownloadFields(builderId, form);
+  const input = {
+    ...formStateToServiceInput(form, status),
+    ...downloadFields,
+  };
+
   let saved: Service;
 
   if (options.serviceId) {
@@ -96,27 +89,6 @@ export async function saveServiceFromForm(
     }
   }
 
-  await syncServicePortfolioProjects(builderId, saved.id, form.portfolioProjects);
+  await syncPortfolioProjectsForService(builderId, saved.id, form.portfolioProjectIds);
   return saved;
-}
-
-export function portfolioToFormProjects(
-  projects: Array<{
-    id: string;
-    title: string;
-    short_description?: string | null;
-    detailed_description?: string | null;
-    project_url?: string | null;
-    media_files?: { type: string; url: string; name: string }[] | null;
-  }>
-): ServiceFormPortfolioProject[] {
-  return projects.map((project) => ({
-    id: project.id,
-    title: project.title,
-    short_description: project.short_description || "",
-    detailed_description: project.detailed_description || "",
-    project_url: project.project_url || "",
-    media_files: project.media_files || [],
-    pendingFiles: [],
-  }));
 }

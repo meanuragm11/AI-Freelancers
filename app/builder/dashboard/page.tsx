@@ -9,12 +9,12 @@ import ServiceManager from '@/components/builder/ServiceManager';
 import ExpertOnboardingWizard from '@/components/builder/ExpertOnboardingWizard';
 import PortfolioManager from '@/components/builder/PortfolioManager';
 import EarningsLedgerPanel from '@/components/builder/EarningsLedgerPanel';
-import ComponentFormModal from '@/components/builder/ComponentFormModal';
+import BuilderRecognitionPanel from '@/components/builder/BuilderRecognitionPanel';
 import NegotiationModal from '@/components/NegotiationModal';
-import type { ComponentRecord } from '@/lib/components/form';
 import { ONBOARDING_COUNTRIES, type OnboardingProfileState } from '@/lib/onboarding/profile';
 import { listBuilderProjectRequests } from '@/lib/project-requests';
 import { ACTIVE_COLLAB_STATUSES, COMPLETED_COLLAB_STATUSES } from '@/lib/marketplace/status';
+import { getDisplayNameInitials } from '@/lib/display/formatDisplayName';
 
 const Icons = {
   Overview: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
@@ -25,7 +25,7 @@ const Icons = {
   Profile: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
 };
 
-type DashboardView = 'overview' | 'projects' | 'assets' | 'messages' | 'finances' | 'settings' | 'services' | 'portfolio' | 'requests';
+type DashboardView = 'overview' | 'projects' | 'messages' | 'finances' | 'settings' | 'services' | 'portfolio' | 'requests';
 
 export default function UnifiedBuilderWorkspace() {
   const router = useRouter();
@@ -38,12 +38,8 @@ export default function UnifiedBuilderWorkspace() {
 
   const [stats, setStats] = useState({ activeCollabs: 0, pendingEscrows: 0, netEarnings: 0, componentSales: 0 });
   const [recentCollabs, setRecentCollabs] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
 
   const [projectTabFilter, setProjectTabFilter] = useState<'all' | 'active' | 'completed'>('all');
-
-  const [componentModalOpen, setComponentModalOpen] = useState(false);
-  const [editingComponent, setEditingComponent] = useState<ComponentRecord | null>(null);
 
   const [onboardingProfileSeed, setOnboardingProfileSeed] = useState<Partial<OnboardingProfileState>>();
   const [customRequests, setCustomRequests] = useState<any[]>([]);
@@ -67,7 +63,6 @@ export default function UnifiedBuilderWorkspace() {
 
       setStats(result.stats);
       setRecentCollabs(result.collabs || []);
-      setInventory(result.components || []);
 
       const requests = await listBuilderProjectRequests(currentUser.id);
       setCustomRequests(requests || []);
@@ -131,6 +126,13 @@ export default function UnifiedBuilderWorkspace() {
   }, [loadDashboard, router]);
 
   useEffect(() => {
+    const view = new URLSearchParams(window.location.search).get('view');
+    if (view === 'services' || view === 'portfolio' || view === 'projects' || view === 'finances' || view === 'requests' || view === 'overview') {
+      setActiveView(view as DashboardView);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!user?.id || !isFreelancer) return;
 
     const refresh = () => {
@@ -140,7 +142,6 @@ export default function UnifiedBuilderWorkspace() {
     const builderId = user.id;
     const tables = [
       { table: 'collabs', rowFilter: `builder_id=eq.${builderId}` },
-      { table: 'components', rowFilter: `builder_id=eq.${builderId}` },
       { table: 'milestones' },
       { table: 'transactions' },
       { table: 'escrow_transactions', rowFilter: `builder_id=eq.${builderId}` },
@@ -280,47 +281,6 @@ export default function UnifiedBuilderWorkspace() {
     }
   };
 
-  const handleArchiveComponent = async (compId: string) => {
-    if (
-      !window.confirm(
-        "Archive this AI asset? It will be removed from the marketplace immediately, but buyers who already purchased it keep full access in their library."
-      )
-    )
-      return;
-    const { data, error } = await supabase
-      .from("components")
-      .update({ status: "archived", archived_at: new Date().toISOString() })
-      .eq("id", compId)
-      .eq("builder_id", user.id)
-      .select("id")
-      .single();
-    if (error || !data?.id) {
-      alert(error?.message || "Failed to archive component.");
-      return;
-    }
-    await loadDashboard(false);
-  };
-
-  const handleRestoreComponent = async (compId: string) => {
-    const { data, error } = await supabase
-      .from("components")
-      .update({ status: "draft", archived_at: null })
-      .eq("id", compId)
-      .eq("builder_id", user.id)
-      .select("id")
-      .single();
-    if (error || !data?.id) {
-      alert(error?.message || "Failed to restore component.");
-      return;
-    }
-    await loadDashboard(false);
-  };
-
-  const openEditComponentModal = (component: ComponentRecord) => {
-    setEditingComponent(component);
-    setComponentModalOpen(true);
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'funded': return <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest">Escrow Funded</span>;
@@ -408,12 +368,15 @@ export default function UnifiedBuilderWorkspace() {
           </button>
 
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Inventory & Sales</p>
-          <button onClick={() => setActiveView('assets')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'assets' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            {Icons.Assets} Components
+          <button onClick={() => setActiveView('services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'services' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Assets} AI Solutions
           </button>
           <button onClick={() => setActiveView('finances')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'finances' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             {Icons.Finances} Earnings Ledger
           </button>
+          <Link href="/builder/recognition" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white">
+            {Icons.Profile} Recognition
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-slate-800 space-y-1 mt-auto">
@@ -435,10 +398,10 @@ export default function UnifiedBuilderWorkspace() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
                 <div>
                   <h1 className="text-3xl font-black text-slate-900 tracking-tight">Expert Command Center</h1>
-                  <p className="text-sm font-medium text-slate-500 mt-1">Manage active contracts, track earnings, and publish components.</p>
+                  <p className="text-sm font-medium text-slate-500 mt-1">Manage active contracts, track earnings, and publish AI Solutions.</p>
                 </div>
-                <button onClick={() => router.push('/builder/components/upload')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-colors flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> Publish Component
+                <button onClick={() => setActiveView('services')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-colors flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> Publish AI Solution
                 </button>
               </div>
 
@@ -457,9 +420,13 @@ export default function UnifiedBuilderWorkspace() {
                   <p className="text-3xl font-black text-blue-600">{stats.activeCollabs}</p>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Asset Sales</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Solution Sales</p>
                   <p className="text-3xl font-black text-purple-600">{stats.componentSales}</p>
                 </div>
+              </div>
+
+              <div className="mb-10">
+                <BuilderRecognitionPanel />
               </div>
 
               {/* Recent Clients Section */}
@@ -480,7 +447,7 @@ export default function UnifiedBuilderWorkspace() {
                             {collab.profiles?.avatar_url ? (
                               <Image src={collab.profiles.avatar_url} fill sizes="32px" className="object-cover" alt="Buyer" />
                             ) : (
-                              <span className="text-slate-400 text-xs font-bold">{collab.profiles?.full_name?.charAt(0) || '?'}</span>
+                              <span className="text-slate-400 text-xs font-bold">{getDisplayNameInitials(collab.profiles?.full_name)}</span>
                             )}
                           </div>
                           <h3 className="text-lg font-black text-slate-900 line-clamp-1">{collab.title}</h3>
@@ -577,67 +544,6 @@ export default function UnifiedBuilderWorkspace() {
             </div>
           )}
 
-          {/* =========================================================
-              VIEW 3: ASSETS (Components Inventory)
-             ========================================================= */}
-          {activeView === 'assets' && (
-            <div className="animate-in fade-in duration-300">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Component Inventory</h2>
-                  <p className="text-sm font-medium text-slate-500 mt-1">Manage and monetize your reusable AI architectures and scripts.</p>
-                </div>
-                <button onClick={() => router.push('/builder/components/upload')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-colors flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> Publish Component
-                </button>
-              </div>
-
-              {inventory.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-16 text-center shadow-sm flex flex-col items-center">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                  </div>
-                  <h3 className="text-lg font-black text-slate-900 mb-1">No components published yet.</h3>
-                  <p className="text-sm font-medium text-slate-500 mb-6">Create passive income by selling your scripts and prompts on the marketplace.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {inventory.map(comp => (
-                    <div key={comp.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
-                      <div className="aspect-video bg-slate-100 relative">
-                        <Image src={comp.thumbnail_url || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=600&h=400'} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" alt="Thumbnail" />
-                        <span className="absolute top-3 left-3 bg-black/60 backdrop-blur text-white px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest">{comp.category}</span>
-                        {comp.status === 'archived' && (
-                          <span className="absolute top-3 right-3 bg-rose-600/90 backdrop-blur text-white px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest">Archived</span>
-                        )}
-                      </div>
-
-                      <div className="p-5 flex flex-col flex-1">
-                        <div className="mb-4 flex-1">
-                          <h3 className="text-base font-black text-slate-900 mb-1 leading-tight line-clamp-1">{comp.title}</h3>
-                          <p className="text-[10px] font-medium text-slate-500 line-clamp-2">{comp.description}</p>
-                          <div className="mt-3 flex justify-between items-center">
-                            <p className="text-sm font-black text-slate-900">${comp.price_usd}</p>
-                            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Sales: {comp.sales_count || 0}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-4 border-t border-slate-100 mt-auto">
-                          <button onClick={() => openEditComponentModal(comp)} className="flex-1 bg-slate-900 hover:bg-blue-600 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">Edit</button>
-                          {comp.status === 'archived' ? (
-                            <button onClick={() => handleRestoreComponent(comp.id)} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">Restore</button>
-                          ) : (
-                            <button onClick={() => handleArchiveComponent(comp.id)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">Archive</button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {activeView === 'services' && user && (
             <ServiceManager builderId={user.id} />
           )}
@@ -699,21 +605,6 @@ export default function UnifiedBuilderWorkspace() {
 
         </div>
       </main>
-
-      {user && (
-        <ComponentFormModal
-          builderId={user.id}
-          open={componentModalOpen}
-          editingComponent={editingComponent}
-          onClose={() => {
-            setComponentModalOpen(false);
-            setEditingComponent(null);
-          }}
-          onSaved={() => {
-            void loadDashboard(false);
-          }}
-        />
-      )}
 
       {/* Negotiation Modal */}
       {selectedRequest && (

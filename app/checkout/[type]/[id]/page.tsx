@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import RazorpayCheckoutButton from '@/components/RazorpayCheckoutButton';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
 
 const ESCROW_PLATFORM_FEE_USD = 5;
 
@@ -96,7 +97,7 @@ export default function SecureCheckout() {
             amount,
             platformFee,
             total: Number(summary.totalDue ?? amount + platformFee),
-            recipientName: (collabDetails?.builder as { full_name?: string } | null)?.full_name ?? 'Expert',
+            recipientName: formatBuilderName((collabDetails?.builder as { full_name?: string } | null)?.full_name ?? 'Expert'),
             scope: milestone.deliverables || milestone.description || collabDetails?.project_description || 'Milestone deliverables defined in the workspace.',
             dueDate: milestone.due_date ? new Date(milestone.due_date).toLocaleDateString() : 'No due date set',
             revisions: 'Revision requests must be made before buyer acceptance.',
@@ -153,7 +154,7 @@ export default function SecureCheckout() {
             amount,
             platformFee,
             total: Number(summary.totalDue ?? amount + platformFee),
-            recipientName: (request.builder as { full_name?: string })?.full_name ?? 'Expert',
+            recipientName: formatBuilderName((request.builder as { full_name?: string })?.full_name ?? 'Expert'),
             scope: request.description,
             dueDate: request.expected_deadline
               ? new Date(request.expected_deadline).toLocaleDateString()
@@ -163,33 +164,48 @@ export default function SecureCheckout() {
               : 'Single payment for full project delivery.',
             terms: 'Payment locks the agreed proposal in chat. Scope changes require a new proposal.',
           });
-        } else if (checkoutType === 'asset') {
-          const { data: component, error } = await supabase
-            .from('components')
-            .select('*, builder:profiles_public!builder_id(full_name)')
+        } else if (checkoutType === 'solution' || checkoutType === 'asset') {
+          const table = checkoutType === 'solution' ? 'services' : 'components';
+          const priceField = checkoutType === 'solution' ? 'starting_price_usd' : 'price_usd';
+          const descField = checkoutType === 'solution' ? 'short_description' : 'description';
+          const builderFk = checkoutType === 'solution' ? 'builder_id' : 'builder_id';
+
+          const { data: item, error } = await supabase
+            .from(table)
+            .select(`*, builder:profiles_public!${builderFk}(full_name)`)
             .eq('id', referenceId)
             .eq('status', 'published')
             .single();
 
-          if (error || !component) throw new Error('Invalid Asset ID');
-          const hasFulfillment = component.delivery_method === 'secure_text'
-            ? Boolean(component.secure_payload_text)
-            : Boolean(component.asset_file_path || component.file_url);
-          if (!hasFulfillment) throw new Error('This asset is missing fulfillment content.');
+          if (error || !item) throw new Error('Invalid AI Solution ID');
 
-          const amount = Number(component.price_usd);
+          if (checkoutType === 'solution') {
+            const hasFulfillment = Boolean(
+              item.fulfillment_payload_text?.trim?.() ||
+                item.fulfillment_payload_url?.trim?.() ||
+                item.download_file_path
+            );
+            if (!hasFulfillment) throw new Error('This AI Solution is missing fulfillment content.');
+          } else {
+            const hasFulfillment = item.delivery_method === 'secure_text'
+              ? Boolean(item.secure_payload_text)
+              : Boolean(item.asset_file_path || item.file_url);
+            if (!hasFulfillment) throw new Error('This AI Solution is missing fulfillment content.');
+          }
+
+          const amount = Number(item[priceField]);
 
           setTransaction({
-            title: `Asset License: ${component.title}`,
-            description: `Category: ${component.category}`,
+            title: item.title,
+            description: item.category ? `Category: ${item.category}` : 'AI Solution purchase',
             amount,
             platformFee: 0,
             total: amount,
-            recipientName: (component.builder as { full_name?: string })?.full_name ?? 'Builder',
-            scope: component.description || 'Commercial license for the selected AI asset.',
+            recipientName: formatBuilderName((item.builder as { full_name?: string })?.full_name ?? 'Builder'),
+            scope: item[descField] || 'AI Solution with secure fulfillment delivered after payment.',
             dueDate: 'Instant delivery after payment confirmation',
-            revisions: 'Digital assets are delivered as-is unless the listing states otherwise.',
-            terms: 'Download access is granted only to the purchasing account. Refunds require support review.',
+            revisions: 'Digital solutions are delivered as-is unless the listing states otherwise.',
+            terms: 'Secure fulfillment is granted only to the purchasing account. Refunds require support review.',
           });
         } else {
           throw new Error('Unknown Checkout Type');
@@ -215,13 +231,15 @@ export default function SecureCheckout() {
   const transactionType =
     checkoutType === 'escrow' || checkoutType === 'project'
       ? 'escrow_funding'
-      : 'component_purchase';
+      : checkoutType === 'solution'
+        ? 'service_purchase'
+        : 'component_purchase';
   const redirectPath =
     checkoutType === 'project' && collabId
       ? `/buyer/messages?conversation=${collabId}`
       : checkoutType === 'escrow' && collabId
         ? `/buyer/messages?conversation=${collabId}`
-        : checkoutType === 'asset'
+        : checkoutType === 'solution' || checkoutType === 'asset'
           ? '/buyer/library'
           : undefined;
   const escrowItemId = paymentItemId ?? referenceId;

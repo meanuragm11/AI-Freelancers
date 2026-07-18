@@ -49,7 +49,7 @@ export default function BrowseProjectsContent() {
     <div className="min-h-screen bg-slate-50">
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-10">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Browse Open Projects</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Open Projects</h1>
           <p className="text-slate-500 font-medium mb-6">Find AI projects posted by buyers worldwide. Submit proposals and get hired.</p>
           <div className="flex flex-col md:flex-row gap-3">
             <input

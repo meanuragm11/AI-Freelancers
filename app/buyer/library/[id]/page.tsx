@@ -7,11 +7,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import AssetFileBrowser, { type AssetFileItem } from "@/components/buyer/library/AssetFileBrowser";
 import CustomProjectModal from "@/components/CustomProjectModal";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 
 type LibraryAssetDetail = {
   id: string;
   purchased_at: string;
   source: string;
+  component_id: string | null;
+  service_id: string | null;
   version: string;
   asset_type: string;
   has_download: boolean;
@@ -22,7 +25,6 @@ type LibraryAssetDetail = {
     description: string | null;
     category: string | null;
     thumbnail_url: string | null;
-    license_type: string | null;
     builder_id: string | null;
     published_at: string | null;
   };
@@ -95,7 +97,7 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || "Failed to load asset");
+        setError(result.error || "Failed to load library item");
         setLoading(false);
         return;
       }
@@ -111,7 +113,7 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50">
         <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading asset...</p>
+        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading library item...</p>
       </div>
     );
   }
@@ -119,9 +121,9 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
   if (error || !asset) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6">
-        <h2 className="text-2xl font-black text-slate-900">Asset unavailable</h2>
+        <h2 className="text-2xl font-black text-slate-900">Item unavailable</h2>
         <p className="mt-2 max-w-md text-center text-sm text-slate-500">
-          {error || "This asset is not in your library."}
+          {error || "This item is not in your library."}
         </p>
         <Link
           href="/buyer/library"
@@ -133,10 +135,10 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
     );
   }
 
-  const builderName = asset.builder?.full_name || "Verified Creator";
-  const reportSubject = encodeURIComponent(`Issue with purchased asset: ${asset.component.title}`);
+  const builderName = formatBuilderName(asset.builder?.full_name || "Verified Creator");
+  const reportSubject = encodeURIComponent(`Issue with purchased AI Solution: ${asset.component.title}`);
   const reportMessage = encodeURIComponent(
-    `Library entry: ${asset.id}\nComponent: ${asset.component.id}\nPurchased: ${asset.purchased_at}`
+    `Library entry: ${asset.id}\nSolution ID: ${asset.component.id}\nPurchased: ${asset.purchased_at}`
   );
   const reportHref = `/support?category=${encodeURIComponent("Technical Bug")}&subject=${reportSubject}&message=${reportMessage}`;
 
@@ -166,7 +168,7 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
                     src={asset.component.thumbnail_url}
                     fill
                     className="object-cover"
-                    alt={asset.component.title || "Asset preview"}
+                    alt={asset.component.title || "Solution preview"}
                     sizes="(max-width: 1024px) 100vw, 66vw"
                     priority
                   />
@@ -188,11 +190,6 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
                   <span className="rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
                     v{asset.version}
                   </span>
-                  {asset.component.license_type && (
-                    <span className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      {asset.component.license_type}
-                    </span>
-                  )}
                 </div>
 
                 <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
@@ -218,7 +215,11 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
               <h2 className="mb-6 border-b border-slate-100 pb-3 text-sm font-black uppercase tracking-widest text-slate-900">
                 Files & Downloads
               </h2>
-              <AssetFileBrowser componentId={asset.component.id} files={asset.files} />
+              <AssetFileBrowser
+                itemId={asset.service_id ?? asset.component.id}
+                itemType={asset.service_id ? "service" : "component"}
+                files={asset.files}
+              />
             </section>
 
             <GuideSection title="Installation Guide" content={asset.guides.installation} />
@@ -306,7 +307,7 @@ export default function LibraryAssetDetailPage({ params }: { params: Promise<{ i
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your Access</p>
                 <p className="mt-1 text-2xl font-black text-green-600">Owned</p>
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  Full download and usage rights per license terms.
+                  Full download access for your purchased AI Solution.
                 </p>
 
                 <Link

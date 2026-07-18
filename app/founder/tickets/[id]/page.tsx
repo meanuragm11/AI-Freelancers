@@ -154,16 +154,16 @@ export default function FounderTicketDetailPage() {
       : []),
     ...(related.service
       ? [[
-          'Service',
+          'AI Solution',
           `${related.service.title} · ${related.service.status}`,
-          `/founder/search?q=${related.service.id}`,
+          `/founder?q=${related.service.id}`,
         ] as [string, string, string]]
       : []),
-    ...(related.aiAsset
+    ...(related.legacySolution
       ? [[
-          'AI Asset',
-          `${related.aiAsset.title} · ${related.aiAsset.status}`,
-          `/founder/search?q=${related.aiAsset.id}`,
+          'Legacy listing',
+          `${related.legacySolution.title} · ${related.legacySolution.status}`,
+          `/founder?q=${related.legacySolution.id}`,
         ] as [string, string, string]]
       : []),
   ];

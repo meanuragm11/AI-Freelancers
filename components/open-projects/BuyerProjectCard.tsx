@@ -21,6 +21,7 @@ const STATUS_STYLES: Record<string, string> = {
   hired: 'bg-blue-100 text-blue-700',
   draft: 'bg-slate-100 text-slate-600',
   closed: 'bg-amber-100 text-amber-700',
+  archived: 'bg-purple-100 text-purple-700',
   cancelled: 'bg-rose-100 text-rose-600',
 };
 
@@ -29,6 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'Closed',
   hired: 'Hired',
   draft: 'Draft',
+  archived: 'Archived',
   cancelled: 'Cancelled',
 };
 
@@ -36,11 +38,12 @@ type Props = {
   project: BuyerProject;
   onClose?: (id: string) => void;
   onReopen?: (id: string) => void;
+  onRestore?: (id: string) => void;
   onDelete?: (id: string) => void;
   compact?: boolean;
 };
 
-export function BuyerProjectCard({ project, onClose, onReopen, onDelete, compact }: Props) {
+export function BuyerProjectCard({ project, onClose, onReopen, onRestore, onDelete, compact }: Props) {
   const postedDate = project.published_at ?? project.created_at;
   const isOpen = project.status === 'published';
 
@@ -106,6 +109,15 @@ export function BuyerProjectCard({ project, onClose, onReopen, onDelete, compact
             className="px-3 py-2 rounded-xl border border-green-200 text-[10px] font-black uppercase tracking-widest text-green-700 hover:bg-green-50"
           >
             Reopen
+          </button>
+        )}
+        {project.status === 'archived' && onRestore && (
+          <button
+            type="button"
+            onClick={() => onRestore(project.id)}
+            className="px-3 py-2 rounded-xl border border-purple-200 text-[10px] font-black uppercase tracking-widest text-purple-700 hover:bg-purple-50"
+          >
+            Restore
           </button>
         )}
         {project.status !== 'hired' && onDelete && (

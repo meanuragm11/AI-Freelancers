@@ -8,7 +8,7 @@ import { postMilestoneChatMessage } from '@/lib/milestones/chatMessages';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 
 type FulfillParams = {
-  checkoutType: 'escrow' | 'asset' | 'revision';
+  checkoutType: 'escrow' | 'asset' | 'solution' | 'revision';
   referenceId: string;
   userId: string;
   orderId: string;
@@ -322,8 +322,88 @@ export async function fulfillRazorpayPayment(
     return { checkoutType, referenceId, collabId: referenceId, maxRevisions: nextMaxRevisions };
   }
 
-  if (!userId) throw new Error('Missing user_id for asset purchase');
+  if (!userId) throw new Error('Missing user_id for solution purchase');
 
+  if (checkoutType === 'solution' || checkoutType === 'asset') {
+    if (checkoutType === 'solution') {
+      const { error: libError } = await supabaseAdmin.from('library').upsert(
+        {
+          user_id: userId,
+          service_id: referenceId,
+          transaction_id: transactionId,
+          source: 'purchase',
+        },
+        { onConflict: 'user_id,service_id' }
+      );
+
+      if (libError) throw new Error(`Library insert failed: ${libError.message}`);
+
+      const { data: transaction } = transactionId
+        ? await supabaseAdmin.from('transactions').select('metadata').eq('id', transactionId).maybeSingle()
+        : { data: null };
+
+      const alreadyCounted = Boolean((transaction?.metadata as Record<string, unknown> | null)?.sales_counted);
+      if (!alreadyCounted) {
+        const { data: serviceRow } = await supabaseAdmin
+          .from('services')
+          .select('sales_count')
+          .eq('id', referenceId)
+          .maybeSingle();
+
+        const nextSalesCount = Number(serviceRow?.sales_count ?? 0) + 1;
+        await supabaseAdmin.from('services').update({ sales_count: nextSalesCount }).eq('id', referenceId);
+
+        if (transactionId) {
+          await supabaseAdmin
+            .from('transactions')
+            .update({
+              metadata: {
+                ...((transaction?.metadata as Record<string, unknown> | null) ?? {}),
+                sales_counted: true,
+              },
+            })
+            .eq('id', transactionId);
+        }
+      }
+
+      const { data: service } = await supabaseAdmin
+        .from('services')
+        .select('title, builder_id')
+        .eq('id', referenceId)
+        .maybeSingle();
+
+      void sendNotification({
+        type: NotificationType.AI_ASSET_PURCHASED,
+        recipientId: userId,
+        title: 'AI Solution purchased',
+        message: `Your purchase of "${service?.title || 'AI Solution'}" is confirmed.`,
+        link: '/buyer/library',
+        metadata: {
+          assetName: service?.title,
+          actorId: userId,
+          idempotencyKey: `${webhookIdempotencyBase}:solution-buyer:${userId}:${referenceId}`,
+        },
+      });
+
+      if (service?.builder_id) {
+        void sendNotification({
+          type: NotificationType.SERVICE_PURCHASED,
+          recipientId: service.builder_id,
+          title: 'Your AI Solution was purchased',
+          message: `A buyer purchased "${service.title}".`,
+          link: '/builder/dashboard',
+          metadata: {
+            assetName: service.title,
+            actorId: userId,
+            idempotencyKey: `${webhookIdempotencyBase}:solution-builder:${service.builder_id}:${referenceId}`,
+          },
+        });
+      }
+
+      return { checkoutType, referenceId, libraryReady: true };
+    }
+
+    // Legacy component purchases (asset checkout type)
   const { error: libError } = await supabaseAdmin
     .from('library')
     .upsert(
@@ -406,12 +486,16 @@ export async function fulfillRazorpayPayment(
   }
 
   return { checkoutType, referenceId, libraryReady: true };
+  }
+
+  throw new Error(`Unsupported checkout type: ${checkoutType}`);
 }
 
 export function mapTransactionTypeToCheckout(
   transactionType: string | null | undefined
-): 'escrow' | 'asset' | 'revision' | null {
+): 'escrow' | 'asset' | 'solution' | 'revision' | null {
   if (transactionType === 'component_purchase') return 'asset';
+  if (transactionType === 'service_purchase') return 'solution';
   if (transactionType === 'revision_purchase') return 'revision';
   if (
     transactionType === 'collab_milestone' ||

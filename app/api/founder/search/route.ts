@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const uuidMatch = isUuid(q);
 
   try {
-    const [tickets, users, transactions, escrow, services, assets, disputes, refunds, withdrawals] = await Promise.all([
+    const [tickets, users, openProjects, transactions, escrow, services, legacyListings, disputes, refunds, withdrawals] = await Promise.all([
       supabaseAdmin
         .from('support_tickets')
         .select('id, ticket_number, subject, email, name')
@@ -34,6 +34,9 @@ export async function GET(req: Request) {
       uuidMatch
         ? supabaseAdmin.from('profiles').select('id, full_name, role').eq('id', q).limit(10)
         : supabaseAdmin.from('profiles').select('id, full_name, role').ilike('full_name', `%${q}%`).limit(10),
+      uuidMatch
+        ? supabaseAdmin.from('projects').select('id, title, status').eq('id', q).limit(10)
+        : supabaseAdmin.from('projects').select('id, title, status').ilike('title', `%${q}%`).limit(10),
       uuidMatch
         ? supabaseAdmin.from('transactions').select('id, order_id, amount_usd, status').or(`id.eq.${q},buyer_id.eq.${q}`).limit(10)
         : supabaseAdmin.from('transactions').select('id, order_id, amount_usd, status').ilike('order_id', `%${q}%`).limit(10),
@@ -77,6 +80,16 @@ export async function GET(req: Request) {
       })
     );
 
+    (openProjects.data ?? []).forEach((project) =>
+      results.push({
+        type: 'Open Project',
+        id: project.id,
+        title: project.title,
+        subtitle: project.status,
+        href: `/projects/${project.id}`,
+      })
+    );
+
     (transactions.data ?? []).forEach((t) =>
       results.push({
         type: 'Transaction',
@@ -89,7 +102,7 @@ export async function GET(req: Request) {
 
     (escrow.data ?? []).forEach((c) =>
       results.push({
-        type: 'Escrow / Project',
+        type: 'Escrow',
         id: c.id,
         title: c.title,
         subtitle: `${c.status} · $${Number(c.escrow_amount_usd).toFixed(2)}`,
@@ -99,7 +112,7 @@ export async function GET(req: Request) {
 
     (services.data ?? []).forEach((s) =>
       results.push({
-        type: 'Service',
+        type: 'AI Solution',
         id: s.id,
         title: s.title,
         subtitle: s.status,
@@ -107,13 +120,13 @@ export async function GET(req: Request) {
       })
     );
 
-    (assets.data ?? []).forEach((a) =>
+    (legacyListings.data ?? []).forEach((listing) =>
       results.push({
-        type: 'AI Asset',
-        id: a.id,
-        title: a.title,
-        subtitle: a.status,
-        href: `/founder/users?q=${a.id}`,
+        type: 'Legacy listing',
+        id: listing.id,
+        title: listing.title,
+        subtitle: listing.status,
+        href: `/founder/users?q=${listing.id}`,
       })
     );
 

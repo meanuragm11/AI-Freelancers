@@ -3,7 +3,7 @@ import { legalPageMetadata } from '@/lib/seo/pages';
 
 export const metadata = legalPageMetadata.terms;
 
-const LAST_UPDATED = 'July 8, 2026';
+const LAST_UPDATED = 'July 17, 2026';
 
 export default function TermsOfServicePage() {
   return (
@@ -43,6 +43,8 @@ export default function TermsOfServicePage() {
               <p>Users retain ownership of content they upload. By uploading content, users grant Zelance a limited, non-exclusive license to host, process and display content solely for operating the platform. Zelance never claims ownership of user content.</p>
               <p>11. Acceptable Use</p>
               <p>Users must not upload illegal content, malware, infringing material, spam, hate speech, deceptive projects, fraudulent reviews or attempt to bypass platform payments or security.</p>
+              <p>11a. Automated Moderation</p>
+              <p>By using Zelance, you consent to automated analysis of your project postings, proposals, and messages for trust and safety purposes. Attempts to share contact information, move payments off-platform, or engage in harassment may result in warnings, restrictions, or account termination as described in our Trust & Safety policy.</p>
               <p>12. Privacy</p>
               <p>Personal information is processed according to the Zelance Privacy Policy.</p>
               <p>13. Suspension and Termination</p>

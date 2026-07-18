@@ -38,15 +38,23 @@ import type { CompletedProjectReview } from '@/types/profile';
 
 
 
+import { buildAuthUrl, saveAuthRedirect } from '@/lib/auth/postAuthRedirect';
+
+
+
 type ProposalWizardProps = {
 
   projectId: string;
+
+  embedded?: boolean;
+
+  onSuccess?: () => void;
 
 };
 
 
 
-export function ProposalWizard({ projectId }: ProposalWizardProps) {
+export function ProposalWizard({ projectId, embedded = false, onSuccess }: ProposalWizardProps) {
 
   const router = useRouter();
 
@@ -98,9 +106,11 @@ export function ProposalWizard({ projectId }: ProposalWizardProps) {
 
     supabase.auth.getUser().then(({ data }) => {
 
-      if (!data.user) router.push(`/auth?redirect=/builder/proposals/new?project=${projectId}`);
-
-      else setUserId(data.user.id);
+      if (!data.user) {
+        const returnPath = `/projects/${projectId}?propose=1`;
+        saveAuthRedirect(returnPath);
+        router.push(buildAuthUrl(returnPath));
+      } else setUserId(data.user.id);
 
     });
 
@@ -214,9 +224,12 @@ export function ProposalWizard({ projectId }: ProposalWizardProps) {
 
       if (!res.ok) throw new Error(data.error);
 
-      router.push('/builder/proposals?submitted=1');
-
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/builder/proposals?submitted=1');
+        router.refresh();
+      }
 
     } catch (err) {
 
@@ -292,11 +305,15 @@ export function ProposalWizard({ projectId }: ProposalWizardProps) {
 
   return (
 
-    <div className="max-w-2xl mx-auto">
+    <div className={embedded ? 'p-6' : 'max-w-2xl mx-auto'}>
 
-      <Link href={`/projects/${projectId}`} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-600 mb-4 inline-block">← {project?.title ?? 'Project'}</Link>
+      {!embedded && (
+        <>
+          <Link href={`/projects/${projectId}`} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-600 mb-4 inline-block">← {project?.title ?? 'Project'}</Link>
 
-      <h1 className="text-2xl font-black text-slate-900 mb-6">Submit Proposal</h1>
+          <h1 className="text-2xl font-black text-slate-900 mb-6">Submit Proposal</h1>
+        </>
+      )}
 
 
 
@@ -312,7 +329,7 @@ export function ProposalWizard({ projectId }: ProposalWizardProps) {
 
 
 
-      <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+      <div className={`bg-white ${embedded ? 'p-6' : 'rounded-3xl border border-slate-200 p-8 shadow-sm'}`}>
 
         {step === 1 && (
 
@@ -490,7 +507,7 @@ export function ProposalWizard({ projectId }: ProposalWizardProps) {
 
               ) : portfolioProjects.length === 0 ? (
 
-                <p className="text-xs text-slate-500">No portfolio projects yet. Add projects from your Builder Workspace portfolio tab.</p>
+                <p className="text-xs text-slate-500">No portfolio projects yet. Add projects from your Workspace portfolio tab.</p>
 
               ) : (
 

@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from '@/components/RemoteImage';
+import {
+  formatProfileDisplayName,
+  getDisplayNameInitials,
+  resolveDisplayName,
+} from '@/lib/display/formatDisplayName';
 
 type ProjectStatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
 
@@ -21,7 +26,7 @@ export default function BuyerProjectsPage() {
 
       const { data, error } = await supabase
         .from('collabs')
-        .select('*, profiles_public!builder_id(full_name, avatar_url, headline)')
+        .select('*, builder:profiles_public!builder_id(full_name, avatar_url, headline)')
         .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -83,15 +88,19 @@ export default function BuyerProjectsPage() {
                 {/* Expert Info */}
                 <div className="flex items-center gap-4 md:w-1/4 shrink-0">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 relative shrink-0 flex items-center justify-center">
-                    {project.profiles?.avatar_url ? (
-                      <Image src={project.profiles.avatar_url} fill sizes="48px" className="object-cover" alt="Expert" />
+                    {project.builder?.avatar_url ? (
+                      <Image src={project.builder.avatar_url} fill sizes="48px" className="object-cover" alt="Expert" />
                     ) : (
-                      <span className="text-slate-400 text-sm font-bold">{project.profiles?.full_name?.charAt(0) || '?'}</span>
+                      <span className="text-slate-400 text-sm font-bold">
+                        {getDisplayNameInitials(resolveDisplayName(project.builder))}
+                      </span>
                     )}
                   </div>
                   <div className="overflow-hidden">
-                    <h4 className="text-sm font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">{project.profiles?.full_name || 'Verified Expert'}</h4>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">{project.profiles?.headline}</p>
+                    <h4 className="text-sm font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                      {formatProfileDisplayName(project.builder)}
+                    </h4>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">{project.builder?.headline}</p>
                   </div>
                 </div>
 

@@ -16,7 +16,7 @@ interface CheckoutProps {
 
   itemId: string;
 
-  transactionType: "component_purchase" | "escrow_funding" | "revision_purchase";
+  transactionType: "component_purchase" | "service_purchase" | "escrow_funding" | "revision_purchase";
 
   buttonText?: string;
 
@@ -537,7 +537,7 @@ export default function RazorpayCheckoutButton({
 
       router.push(redirectPath);
 
-    } else if (transactionType === 'component_purchase') {
+    } else if (transactionType === 'component_purchase' || transactionType === 'service_purchase') {
 
       router.push('/buyer/library');
 
@@ -630,15 +630,10 @@ export default function RazorpayCheckoutButton({
         name: 'Zelance Network',
 
         description:
-
-          transactionType === 'component_purchase'
-
-            ? 'Component Acquisition'
-
+          transactionType === 'component_purchase' || transactionType === 'service_purchase'
+            ? 'AI Solution Purchase'
             : transactionType === 'revision_purchase'
-
               ? 'Extra Revision Purchase'
-
               : 'Escrow Funding',
 
         retry: { enabled: false },
@@ -937,9 +932,7 @@ export default function RazorpayCheckoutButton({
 
       <p className="mt-2 text-[10px] font-medium text-slate-500 text-center leading-relaxed">
 
-        Prices are listed in USD. Checkout is processed in INR via Razorpay unless your admin sets{' '}
-
-        <span className="font-bold">RAZORPAY_CHECKOUT_CURRENCY=USD</span> and enables International Payments.
+        Checkout is processed in INR via Razorpay
 
       </p>
 

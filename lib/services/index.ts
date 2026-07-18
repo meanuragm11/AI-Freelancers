@@ -1,8 +1,10 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { Service, ServiceStatus } from "@/types/marketplace";
+import { PUBLIC_SERVICE_COLUMNS } from "@/lib/solutions/constants";
 
-const SERVICE_SELECT =
-  "*, builder:profiles_public!builder_id(id, full_name, headline, avatar_url, banner_url, tech_stack, location, bio, is_verified, average_rating, review_count, average_response_hours, completed_projects, is_top_expert)";
+const SERVICE_SELECT = `${PUBLIC_SERVICE_COLUMNS}, builder:profiles_public!builder_id(id, full_name, headline, avatar_url, banner_url, tech_stack, location, bio, is_verified, average_rating, review_count, average_response_hours, completed_projects, is_top_expert)`;
+
+const BUILDER_SERVICE_SELECT = `*, builder:profiles_public!builder_id(id, full_name, headline, avatar_url, banner_url, tech_stack, location, bio, is_verified, average_rating, review_count, average_response_hours, completed_projects, is_top_expert)`;
 
 export type ServiceInput = Partial<
   Omit<Service, "id" | "created_at" | "updated_at" | "view_count" | "order_count" | "rating_avg" | "review_count" | "builder">
@@ -31,7 +33,7 @@ export async function listPublishedServices(filters?: {
   const { data, error } = await query.order("created_at", { ascending: false }).limit(filters?.limit ?? 200);
   if (error) throw error;
 
-  let results = (data ?? []) as Service[];
+  let results = (data ?? []) as unknown as Service[];
 
   if (filters?.skills?.length) {
     results = results.filter((s) =>
@@ -55,7 +57,27 @@ export async function listPublishedServices(filters?: {
 export async function getServiceById(id: string) {
   const { data, error } = await supabase.from("services").select(SERVICE_SELECT).eq("id", id).single();
   if (error) throw error;
-  return data as Service;
+  return data as unknown as Service;
+}
+
+/** Includes secure fulfillment fields — builder-only editing */
+export async function getServiceByIdForBuilder(id: string, builderId: string) {
+  const { data, error } = await supabase
+    .from("services")
+    .select(BUILDER_SERVICE_SELECT)
+    .eq("id", id)
+    .eq("builder_id", builderId)
+    .single();
+  if (error) throw error;
+  return data as Service & {
+    fulfillment_payload_text?: string | null;
+    fulfillment_payload_url?: string | null;
+    download_bucket?: string | null;
+    download_file_path?: string | null;
+    download_file_name?: string | null;
+    download_file_size?: number | null;
+    download_content_type?: string | null;
+  };
 }
 
 export async function listBuilderServices(builderId: string) {
@@ -75,13 +97,13 @@ export async function createService(builderId: string, input: ServiceInput) {
     .select()
     .single();
   if (error) throw error;
-  return data as Service;
+  return data as unknown as Service;
 }
 
 export async function updateService(id: string, input: ServiceInput) {
   const { data, error } = await supabase.from("services").update(input).eq("id", id).select().single();
   if (error) throw error;
-  return data as Service;
+  return data as unknown as Service;
 }
 
 /**
@@ -122,6 +144,8 @@ export async function duplicateService(id: string, builderId: string) {
     category: original.category,
     ai_skills: original.ai_skills,
     tags: original.tags,
+    pricing_mode: original.pricing_mode ?? "paid",
+    delivery_model: original.delivery_model ?? "collaborative",
     cover_image_url: original.cover_image_url,
     banner_image_url: original.banner_image_url,
     gallery_urls: original.gallery_urls,

@@ -15,7 +15,6 @@ import {
   type OnboardingProfileState,
 } from "@/lib/onboarding/profile";
 import { listBuilderServices } from "@/lib/services";
-import { portfolioToFormProjects } from "@/lib/services/saveServiceForm";
 import { serviceToFormState, type ServiceFormState } from "@/lib/services/form";
 import { supabase } from "@/lib/supabaseClient";
 import type { Service } from "@/types/marketplace";
@@ -161,7 +160,7 @@ export async function loadOnboardingDraft(userId: string): Promise<OnboardingDra
     const servicePortfolio = await listPortfolioProjectsByService(draftService.id);
     serviceForm = serviceToFormState(
       draftService,
-      portfolioToFormProjects(servicePortfolio)
+      servicePortfolio.map((project) => project.id)
     );
   }
 

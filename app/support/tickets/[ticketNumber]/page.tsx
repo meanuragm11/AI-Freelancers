@@ -96,7 +96,7 @@ export default function SupportTicketDetailPage() {
               ['Escrow ID', ticket.escrow_id],
               ['Project ID', ticket.project_id],
               ['Service ID', ticket.service_id],
-              ['AI Asset ID', ticket.ai_asset_id],
+              ['AI Solution ID', ticket.ai_asset_id],
             ]
               .filter(([, value]) => Boolean(value))
               .map(([label, value]) => (

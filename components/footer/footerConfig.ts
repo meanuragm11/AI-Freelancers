@@ -9,12 +9,10 @@ export interface FooterLinkItem {
 export const SUPPORT_EMAIL = 'support@zelance.co';
 
 export const platformLinks: FooterLinkItem[] = [
-  { label: 'Hire AI Experts', href: '/buyer/discover' },
-  { label: 'AI Services Marketplace', href: '/buyer/discover?tab=experts' },
-  { label: 'AI Asset Store', href: '/buyer/discover?tab=components' },
+  { label: 'Discover AI Solutions', href: '/buyer/discover' },
   { label: 'Open Projects', href: '/projects' },
-  { label: 'Become AI Expert', href: '/builder/dashboard' },
-  { label: 'Monetize AI Assets', href: '/builder/components/upload' },
+  { label: 'Become an AI Expert', href: '/builder/dashboard' },
+  { label: 'Publish AI Solution', href: '/builder/dashboard?view=services' },
 ];
 
 export const companyLinks: FooterLinkItem[] = [

@@ -10,19 +10,21 @@ import {
   incrementProfileViewsIfVisitor,
 } from "@/lib/profile";
 import { formatResponseTimeLabel, getInitials } from "@/lib/profile/formatters";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 import type {
   BuilderProfileView,
-  BuilderPublishedComponent,
   BuilderPublishedService,
   CompletedProjectReview,
 } from "@/types/profile";
 import ProfileLoadingSkeleton from "@/components/profile/ProfileLoadingSkeleton";
 import ProfileInfoCards from "@/components/profile/ProfileInfoCards";
 import ProfileServicesSection from "@/components/profile/ProfileServicesSection";
-import ProfileAssetsSection from "@/components/profile/ProfileAssetsSection";
 import ProfilePortfolioSection from "@/components/profile/ProfilePortfolioSection";
 import ProfileWorkHistory from "@/components/profile/ProfileWorkHistory";
 import { isDisplayableImageUrl } from "@/lib/images";
+import { fetchBuilderRecognition } from "@/lib/arena/badges/client";
+import RecognitionBadgeList from "@/components/arena/RecognitionBadgeList";
+import type { RecognitionBadgeGrant } from "@/lib/arena/badges/types";
 
 const COUNTRIES = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
@@ -63,7 +65,7 @@ const EXHAUSTIVE_AI_TECH_STACK = [
 
 const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "German", "Portuguese", "Hindi", "Arabic", "Mandarin", "Japanese", "Other"];
 
-type ProfileTab = "overview" | "services" | "assets" | "portfolio" | "history";
+type ProfileTab = "overview" | "services" | "portfolio" | "history";
 
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -79,8 +81,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
   const [profile, setProfile] = useState<BuilderProfileView | null>(null);
   const [services, setServices] = useState<BuilderPublishedService[]>([]);
-  const [components, setComponents] = useState<BuilderPublishedComponent[]>([]);
   const [workHistory, setWorkHistory] = useState<CompletedProjectReview[]>([]);
+  const [recognitionBadges, setRecognitionBadges] = useState<RecognitionBadgeGrant[]>([]);
 
   const [selectedTech, setSelectedTech] = useState(EXHAUSTIVE_AI_TECH_STACK[0]);
   const [customTech, setCustomTech] = useState("");
@@ -118,12 +120,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
       setProfile(pageData.profile);
       setServices(pageData.services);
-      setComponents(pageData.components);
       setWorkHistory(pageData.workHistory);
       setBannerPreview(pageData.profile.banner_url || "");
       setAvatarPreview(pageData.profile.avatar_url || "");
       setBannerFile(null);
       setAvatarFile(null);
+
+      try {
+        const recognition = await fetchBuilderRecognition(targetId);
+        setRecognitionBadges(recognition.badges);
+      } catch {
+        setRecognitionBadges([]);
+      }
 
       if (!owner) {
         incrementProfileViewsIfVisitor(targetId, false).catch(() => {});
@@ -261,10 +269,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
   const bannerUrl = bannerPreview && (bannerPreview.startsWith("blob:") || isDisplayableImageUrl(bannerPreview)) ? bannerPreview : undefined;
   const avatarUrl = avatarPreview && (avatarPreview.startsWith("blob:") || isDisplayableImageUrl(avatarPreview)) ? avatarPreview : undefined;
+  const publicDisplayName = isOwner ? profile.full_name : formatBuilderName(profile.full_name);
   const tabs: { id: ProfileTab; label: string; show: boolean }[] = [
     { id: "overview", label: "Overview", show: true },
-    { id: "services", label: "Services", show: true },
-    { id: "assets", label: "AI Assets", show: components.length > 0 },
+    { id: "services", label: "AI Solutions", show: true },
     { id: "portfolio", label: "Portfolio", show: true },
     { id: "history", label: "History", show: true },
   ];
@@ -302,9 +310,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <div className="relative -mt-14 h-28 w-28 shrink-0 overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-xl sm:-mt-16 sm:h-32 sm:w-32 md:h-36 md:w-36 md:rounded-3xl">
                 {avatarUrl ? (
                   avatarUrl.startsWith("blob:") ? (
-                    <img src={avatarUrl} alt={profile.full_name} className="h-full w-full object-cover" />
+                    <img src={avatarUrl} alt={publicDisplayName} className="h-full w-full object-cover" />
                   ) : (
-                    <Image key={avatarUrl} src={avatarUrl} fill className="object-cover" alt={profile.full_name} sizes="144px" priority />
+                    <Image key={avatarUrl} src={avatarUrl} fill className="object-cover" alt={publicDisplayName} sizes="144px" priority />
                   )
                 ) : (
                   <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300 text-3xl font-black text-slate-500">
@@ -362,7 +370,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 ) : (
                   <>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-4xl">{profile.full_name}</h1>
+                      <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-4xl">{publicDisplayName}</h1>
                       {profile.is_verified && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-200">
                           ✓ Verified
@@ -374,6 +382,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         </span>
                       )}
                     </div>
+                    <RecognitionBadgeList badges={recognitionBadges} size="md" className="mt-2" />
                     <p className="mt-1 text-base font-bold text-blue-600 md:text-lg">{profile.headline || "AI Builder on Zelance"}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
                       {profile.location && (
@@ -574,12 +583,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               )}
             </div>
 
-            <ProfileInfoCards profile={profile} serviceCount={services.length} />
+            <ProfileInfoCards profile={profile} serviceCount={services.length} displayName={publicDisplayName} />
           </aside>
 
           <main className="space-y-12 lg:col-span-2">
             <ProfileServicesSection services={services} />
-            <ProfileAssetsSection components={components} />
             <ProfilePortfolioSection builderId={profile.id} isOwner={isOwner} />
             <ProfileWorkHistory workHistory={workHistory} />
           </main>

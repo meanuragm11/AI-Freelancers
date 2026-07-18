@@ -3,13 +3,24 @@
 import { useCallback, useState } from "react";
 
 export type DownloadResult = {
-  deliveryMethod: "secure_text" | "file" | "legacy_url";
+  deliveryMethod: "secure_text" | "secure_url" | "file" | "legacy_url";
   title?: string;
   payload?: string;
   url?: string;
   fileName?: string;
   warning?: string;
 };
+
+type DownloadTarget = {
+  itemId: string;
+  itemType?: "component" | "service";
+};
+
+function downloadEndpoint({ itemId, itemType = "component" }: DownloadTarget) {
+  return itemType === "service"
+    ? `/api/solutions/${itemId}/download`
+    : `/api/assets/${itemId}/download`;
+}
 
 export function useAssetDownload() {
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
@@ -19,12 +30,18 @@ export function useAssetDownload() {
   );
 
   const downloadAsset = useCallback(
-    async (componentId: string, fileKey = "primary"): Promise<DownloadResult | null> => {
-      setDownloadingKey(`${componentId}:${fileKey}`);
+    async (
+      target: DownloadTarget | string,
+      fileKey = "primary"
+    ): Promise<DownloadResult | null> => {
+      const resolved =
+        typeof target === "string" ? { itemId: target, itemType: "component" as const } : target;
+
+      setDownloadingKey(`${resolved.itemId}:${fileKey}`);
       setError(null);
 
       try {
-        const response = await fetch(`/api/assets/${componentId}/download`, {
+        const response = await fetch(downloadEndpoint(resolved), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileKey }),
@@ -37,7 +54,7 @@ export function useAssetDownload() {
 
         if (result.deliveryMethod === "secure_text") {
           setSecurePayload({
-            title: result.title || "Secure Asset Payload",
+            title: result.title || "Secure Payload",
             payload: result.payload,
           });
           return result as DownloadResult;
@@ -48,7 +65,7 @@ export function useAssetDownload() {
           return result as DownloadResult;
         }
 
-        throw new Error("Download is not configured for this asset.");
+        throw new Error("Download is not configured for this AI Solution.");
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Download failed";
         setError(message);
@@ -64,8 +81,7 @@ export function useAssetDownload() {
   const closeSecurePayload = useCallback(() => setSecurePayload(null), []);
 
   const isDownloading = useCallback(
-    (componentId: string, fileKey = "primary") =>
-      downloadingKey === `${componentId}:${fileKey}`,
+    (itemId: string, fileKey = "primary") => downloadingKey === `${itemId}:${fileKey}`,
     [downloadingKey]
   );
 

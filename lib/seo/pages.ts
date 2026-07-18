@@ -14,7 +14,7 @@ export const pageSeo = {
     path: '/about-us',
   },
   discover: {
-    title: 'Hire AI Experts',
+    title: 'Discover Experts',
     description:
       'Browse and hire vetted AI experts, prompt engineers, and agent builders. Filter by skills, ratings, and delivery time on the Zelance marketplace.',
     path: '/buyer/discover',
@@ -26,9 +26,15 @@ export const pageSeo = {
     path: '/projects',
   },
   becomeExpert: {
-    title: 'Become AI Expert',
+    title: 'Become an AI Expert',
     description:
       'Join Zelance as an AI expert. Publish services, sell reusable AI assets, compete for open projects, and earn through secure escrow-backed payouts.',
+    path: '/builder/dashboard',
+  },
+  workspace: {
+    title: 'Workspace',
+    description:
+      'Your Zelance workspace — manage services, projects, earnings, and collaborations in one place.',
     path: '/builder/dashboard',
   },
   terms: {
@@ -81,6 +87,10 @@ export const discoverPageMetadata = generateSEOMetadata(pageSeo.discover);
 export const projectsPageMetadata = generateSEOMetadata(pageSeo.projects);
 export const becomeExpertPageMetadata = generateSEOMetadata({
   ...pageSeo.becomeExpert,
+  noIndex: true,
+});
+export const workspacePageMetadata = generateSEOMetadata({
+  ...pageSeo.workspace,
   noIndex: true,
 });
 

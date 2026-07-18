@@ -85,7 +85,7 @@ export default function GeographicWallet() {
           </h2>
 
           <p className="text-sm text-slate-400 font-medium mb-6">
-            Cleared funds from completed invoices and component sales.
+            Cleared funds from completed invoices and AI Solution sales.
           </p>
 
           <button

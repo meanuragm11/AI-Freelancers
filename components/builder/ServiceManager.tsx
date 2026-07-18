@@ -4,12 +4,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   archiveService,
   duplicateService,
+  getServiceByIdForBuilder,
   listBuilderServices,
   restoreService,
   setServiceStatus,
 } from "@/lib/services";
 import { listPortfolioProjectsByService } from "@/lib/portfolio";
-import { portfolioToFormProjects } from "@/lib/services/saveServiceForm";
 import { serviceToFormState, validateServiceForm } from "@/lib/services/form";
 import { supabase } from "@/lib/supabaseClient";
 import type { Service } from "@/types/marketplace";
@@ -69,10 +69,16 @@ export default function ServiceManager({ builderId }: { builderId: string }) {
     setBusyId(service.id);
     setErrorMessage(null);
     try {
-      const portfolioProjects = await listPortfolioProjectsByService(service.id);
-      setEditingService(service);
+      const [fullService, portfolioProjects] = await Promise.all([
+        getServiceByIdForBuilder(service.id, builderId),
+        listPortfolioProjectsByService(service.id),
+      ]);
+      setEditingService(fullService);
       setInitialForm(
-        serviceToFormState(service, portfolioToFormProjects(portfolioProjects))
+        serviceToFormState(
+          fullService,
+          portfolioProjects.map((project) => project.id)
+        )
       );
       setModalOpen(true);
     } catch (err: unknown) {
@@ -155,9 +161,9 @@ export default function ServiceManager({ builderId }: { builderId: string }) {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-3xl font-black text-slate-900">My Services</h2>
+          <h2 className="text-3xl font-black text-slate-900">My AI Solutions</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Manage your fixed-price AI services across the marketplace.
+            Manage freelance services, digital downloads, and ready-to-use AI solutions.
           </p>
         </div>
         <button
@@ -165,7 +171,7 @@ export default function ServiceManager({ builderId }: { builderId: string }) {
           onClick={openCreateModal}
           className="rounded-xl bg-blue-600 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-md transition-colors hover:bg-blue-700"
         >
-          + Add New Service
+          + Create AI Solution
         </button>
       </div>
 
@@ -186,17 +192,17 @@ export default function ServiceManager({ builderId }: { builderId: string }) {
         </div>
       ) : services.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-8 py-16 text-center">
-          <p className="text-lg font-black text-slate-900">No services yet</p>
+          <p className="text-lg font-black text-slate-900">No AI Solutions yet</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            Create your first professional AI service listing to appear on the homepage, Hire AI Expert
-            page, search, and your public profile.
+            Create your first AI Solution to appear on Discover, search, and your public profile.
+            One listing can include expertise, downloads, customization, and implementation.
           </p>
           <button
             type="button"
             onClick={openCreateModal}
             className="mt-6 rounded-xl bg-blue-600 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white"
           >
-            + Add New Service
+            + Create AI Solution
           </button>
         </div>
       ) : (

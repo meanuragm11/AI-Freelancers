@@ -3,10 +3,12 @@
 import React, { memo, useCallback } from "react";
 import type { ServiceCardData } from "@/types/marketplace";
 import { ServiceBrowseCard } from "@/components/service-cards/ServiceBrowseCard";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 
 type ExpertServiceCardProps = {
   expert: ServiceCardData;
   index?: number;
+  recognitionBadge?: import('@/lib/arena/badges/types').RecognitionBadgeGrant | null;
   onViewService: (serviceId: string) => void;
   onRequestCustomProject: (builderId: string, serviceId?: string) => void;
 };
@@ -14,6 +16,7 @@ type ExpertServiceCardProps = {
 function ExpertServiceCardComponent({
   expert,
   index = 0,
+  recognitionBadge = null,
   onViewService,
   onRequestCustomProject,
 }: ExpertServiceCardProps) {
@@ -31,7 +34,7 @@ function ExpertServiceCardComponent({
   );
 
   return (
-    <article className="h-full" aria-label={`${expert.service_title} by ${expert.full_name}`}>
+    <article className="h-full" aria-label={`${expert.service_title} by ${formatBuilderName(expert.full_name)}`}>
       <ServiceBrowseCard
         index={index}
         category={category}
@@ -46,6 +49,7 @@ function ExpertServiceCardComponent({
         deliveryTimeDays={expert.delivery_time_days}
         isVerified={expert.is_verified}
         isTopExpert={expert.is_top_expert}
+        recognitionBadge={recognitionBadge}
         footer={
           <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
             <button
@@ -59,7 +63,7 @@ function ExpertServiceCardComponent({
             <button
               type="button"
               onClick={handleRequestProject}
-              aria-label={`Request custom project from ${expert.full_name}`}
+              aria-label={`Request custom project from ${formatBuilderName(expert.full_name)}`}
               className="text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1 rounded"
             >
               Request Project

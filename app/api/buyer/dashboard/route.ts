@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
 import { createSupabaseAdminClient, getAuthenticatedUser } from '@/lib/server/supabase';
 import {
   ACTIVE_COLLAB_STATUSES,
@@ -129,7 +130,7 @@ export async function GET() {
         serviceId: collab.service_id || '',
         serviceTitle: collab.service?.title || collab.title || 'Purchased Service',
         serviceThumbnail: collab.service?.cover_image_url || null,
-        freelancerName: collab.profiles?.full_name || 'Verified Expert',
+        freelancerName: formatBuilderName(collab.profiles?.full_name),
         freelancerAvatar: collab.profiles?.avatar_url || null,
         status: mapProjectStatus(collab.status),
         milestoneProgress: milestones.length ? `${completed}/${milestones.length} milestones` : `${completionPercentage}% complete`,
@@ -150,7 +151,7 @@ export async function GET() {
                 ? 'funded'
                 : 'started',
             title: collab.title,
-            expert: collab.profiles?.full_name,
+            expert: formatBuilderName(collab.profiles?.full_name),
             amount: Number(collab.escrow_amount_usd || 0),
             date: collab.created_at,
           }))

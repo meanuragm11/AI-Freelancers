@@ -8,6 +8,7 @@ import {
   formToPortfolioInput,
   LINK_TITLE_SUGGESTIONS,
   projectToFormState,
+  hasValidPortfolioProof,
   validatePortfolioForm,
   type PortfolioFormState,
 } from "@/lib/portfolio";
@@ -19,7 +20,8 @@ type PortfolioProjectFormModalProps = {
   open: boolean;
   editingProject?: PortfolioProject | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (project?: PortfolioProject) => void;
+  overlayClassName?: string;
 };
 
 export default function PortfolioProjectFormModal({
@@ -28,6 +30,7 @@ export default function PortfolioProjectFormModal({
   editingProject = null,
   onClose,
   onSaved,
+  overlayClassName = "z-50",
 }: PortfolioProjectFormModalProps) {
   const [form, setForm] = useState<PortfolioFormState>(EMPTY_PORTFOLIO_FORM);
   const [saving, setSaving] = useState(false);
@@ -40,6 +43,9 @@ export default function PortfolioProjectFormModal({
   }, [open, editingProject]);
 
   if (!open) return null;
+
+  const validation = validatePortfolioForm(form);
+  const needsProof = !hasValidPortfolioProof(form);
 
   const updateLink = (index: number, field: "title" | "url", value: string) => {
     const links = form.links.map((link, i) => (i === index ? { ...link, [field]: value } : link));
@@ -80,7 +86,6 @@ export default function PortfolioProjectFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = validatePortfolioForm(form);
     if (!validation.valid) {
       setError(validation.errors[0]);
       return;
@@ -91,11 +96,12 @@ export default function PortfolioProjectFormModal({
     try {
       const input = formToPortfolioInput(form);
       if (editingProject) {
-        await updatePortfolioProject(editingProject.id, input);
+        const updated = await updatePortfolioProject(editingProject.id, input);
+        onSaved(updated);
       } else {
-        await createPortfolioProject(builderId, input);
+        const created = await createPortfolioProject(builderId, input);
+        onSaved(created);
       }
-      onSaved();
       onClose();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save project";
@@ -106,7 +112,7 @@ export default function PortfolioProjectFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+    <div className={`fixed inset-0 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm ${overlayClassName}`}>
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 p-6">
           <h3 className="text-lg font-black text-slate-900">
@@ -152,9 +158,12 @@ export default function PortfolioProjectFormModal({
           </div>
 
           <div>
+            <p className="mb-3 text-xs text-slate-500">
+              Add at least one project URL or upload at least one file.
+            </p>
             <div className="mb-2 flex items-center justify-between gap-3">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Project URL(s) *
+                Project URL(s)
               </label>
               <button
                 type="button"
@@ -204,7 +213,7 @@ export default function PortfolioProjectFormModal({
 
           <div>
             <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Upload Files (Optional)
+              Upload Files
             </label>
             <input
               type="file"
@@ -234,7 +243,11 @@ export default function PortfolioProjectFormModal({
             )}
           </div>
 
-          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+          {(error || needsProof) && (
+            <p className="text-sm font-medium text-red-600">
+              {error ?? "Please add at least one Project URL or upload at least one file."}
+            </p>
+          )}
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
             <button
@@ -246,7 +259,7 @@ export default function PortfolioProjectFormModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !validation.valid}
               className="rounded-xl bg-slate-900 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-600 disabled:opacity-50"
             >
               {saving ? "Saving..." : editingProject ? "Update Project" : "Add Project"}

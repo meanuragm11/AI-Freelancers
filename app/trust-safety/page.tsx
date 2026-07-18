@@ -3,7 +3,7 @@ import { legalPageMetadata } from '@/lib/seo/pages';
 
 export const metadata = legalPageMetadata.trustSafety;
 
-const LAST_UPDATED = 'July 8, 2026';
+const LAST_UPDATED = 'July 17, 2026';
 
 export default function TrustSafetyPage() {
   return (
@@ -53,6 +53,10 @@ export default function TrustSafetyPage() {
               <p>Users are expected to use AI responsibly. Illegal, deceptive, harmful or rights-infringing AI content is prohibited.</p>
               <p>8. Moderation</p>
               <p>Reported users, projects and content may be reviewed by the Zelance moderation team. Actions may include warnings, content removal, temporary suspension or permanent account termination.</p>
+              <p>8a. AI-Powered Content Moderation</p>
+              <p>Zelance uses Google Gemini 2.5 Flash to automatically analyze open project postings, builder proposals, and chat messages for policy violations including spam, contact sharing, off-platform payment attempts, harassment, scams, and illegal content. Analysis runs asynchronously in the background and does not block normal platform use. High-risk content may be automatically flagged or hidden pending review. Our founder moderation team reviews flagged items and can warn, suspend, ban, remove, or restore content.</p>
+              <p>8b. Progressive Enforcement</p>
+              <p>First offence: friendly warning. Second: 24-hour account restriction. Third: 7-day suspension. Repeated abuse: permanent ban. All enforcement actions are logged.</p>
               <p>9. Privacy & Data Protection</p>
               <p>We apply reasonable technical and organizational safeguards to protect user information. Personal information is handled according to our Privacy Policy.</p>
             </div>

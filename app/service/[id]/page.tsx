@@ -8,7 +8,14 @@ import { getServiceById, incrementServiceViews } from "@/lib/services";
 import { listPortfolioProjectsByService } from "@/lib/portfolio";
 import type { Service, Review, PortfolioProject } from "@/types/marketplace";
 import CustomProjectModal from "@/components/CustomProjectModal";
+import RazorpayCheckoutButton from "@/components/RazorpayCheckoutButton";
 import { createCollab } from "@/lib/hire/createCollab";
+import SolutionCapabilityBadges from "@/components/solutions/SolutionCapabilityBadges";
+import SolutionFulfillmentPreview from "@/components/solutions/SolutionFulfillmentPreview";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
+import { fetchBuilderRecognition } from "@/lib/arena/badges/client";
+import RecognitionBadgeList from "@/components/arena/RecognitionBadgeList";
+import type { RecognitionBadgeGrant } from "@/lib/arena/badges/types";
 
 interface ServicePageProps {
   params: Promise<{ id: string }>;
@@ -23,6 +30,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
   const [buying, setBuying] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [serviceId, setServiceId] = useState<string | null>(null);
+  const [builderBadges, setBuilderBadges] = useState<RecognitionBadgeGrant[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -40,6 +48,13 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
         }
         setService(data);
         incrementServiceViews(id).catch(() => {});
+
+        try {
+          const recognition = await fetchBuilderRecognition(data.builder_id);
+          setBuilderBadges(recognition.badges);
+        } catch {
+          setBuilderBadges([]);
+        }
 
         const [{ data: reviewData }, portfolio] = await Promise.all([
           supabase
@@ -80,8 +95,59 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
     return () => { supabase.removeChannel(channel); };
   }, [serviceId]);
 
+  const [ownedInLibrary, setOwnedInLibrary] = useState(false);
+
+  useEffect(() => {
+    async function checkLibrary() {
+      if (!serviceId) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("library")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("service_id", serviceId)
+        .maybeSingle();
+      setOwnedInLibrary(Boolean(data));
+    }
+    void checkLibrary();
+  }, [serviceId]);
+
+  const handleAcquireFreeSolution = async () => {
+    if (!service) return;
+    setBuying(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      const res = await fetch(`/api/solutions/${service.id}/acquire`, { method: "POST" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Acquisition failed");
+      router.push("/buyer/library");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to acquire AI Solution");
+    } finally {
+      setBuying(false);
+    }
+  };
+
   const handleBuyService = async () => {
     if (!service) return;
+
+    const deliveryModel = service.delivery_model ?? "collaborative";
+    const pricingMode = service.pricing_mode ?? (Number(service.starting_price_usd) === 0 ? "free" : "paid");
+
+    if (deliveryModel === "instant") {
+      if (pricingMode === "free") {
+        await handleAcquireFreeSolution();
+        return;
+      }
+      router.push(`/checkout/solution/${service.id}`);
+      return;
+    }
+
     setBuying(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -164,7 +230,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-500">
-        Loading service...
+        Loading AI Solution...
       </div>
     );
   }
@@ -172,14 +238,19 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
   if (!service) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-500">
-        Service not found.
+        AI Solution not found.
       </div>
     );
   }
 
   const builder = service.builder;
+  const builderDisplayName = formatBuilderName(builder?.full_name);
   const banner = service.banner_image_url || service.cover_image_url || builder?.banner_url || "";
   const thumbnail = service.cover_image_url || "";
+  const deliveryModel = service.delivery_model ?? "collaborative";
+  const pricingMode = service.pricing_mode ?? (Number(service.starting_price_usd) === 0 ? "free" : "paid");
+  const isInstant = deliveryModel === "instant";
+  const isFree = pricingMode === "free" || Number(service.starting_price_usd) === 0;
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10">
@@ -189,7 +260,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
           onClick={() => router.back()}
           className="text-sm font-semibold text-slate-500 hover:text-blue-600"
         >
-          ← Back to marketplace
+          ← Back to Discover
         </button>
 
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -198,7 +269,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
               <Image src={banner} fill sizes="100vw" className="object-cover" alt={service.title} />
             ) : (
               <div className="flex h-full items-center justify-center bg-gradient-to-br from-blue-100 via-white to-slate-100 text-slate-500 font-black uppercase tracking-widest">
-                AI Service
+                AI Solution
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent" />
@@ -206,15 +277,16 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
               <div className="absolute bottom-6 left-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-4 border-white bg-white">
                   {builder.avatar_url ? (
-                    <Image src={builder.avatar_url} fill sizes="64px" className="object-cover" alt={builder.full_name} />
+                    <Image src={builder.avatar_url} fill sizes="64px" className="object-cover" alt={builderDisplayName} />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-slate-200 text-slate-500 font-black">
-                      {builder.full_name?.[0]}
+                      {builderDisplayName.charAt(0)}
                     </div>
                   )}
                 </div>
                 <div className="text-white">
-                  <p className="text-xl font-black">{builder.full_name}</p>
+                  <p className="text-xl font-black">{builderDisplayName}</p>
+                  <RecognitionBadgeList badges={builderBadges} size="sm" className="mt-1" />
                   <p className="text-sm text-slate-200">{builder.headline}</p>
                 </div>
               </div>
@@ -225,9 +297,10 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
             <div className="space-y-8">
               <section>
                 <p className="text-xs font-black uppercase tracking-widest text-blue-600">
-                  {service.category || "AI Service"}
+                  {service.category || "AI Solution"}
                 </p>
                 <h1 className="mt-2 text-3xl font-black text-slate-900">{service.title}</h1>
+                <SolutionCapabilityBadges service={service} className="mt-4" />
                 {service.short_description && (
                   <p className="mt-3 text-base font-medium text-slate-700">{service.short_description}</p>
                 )}
@@ -242,6 +315,8 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
                   <p className="mt-3 text-sm leading-7 text-slate-600">{service.requirements_from_buyer}</p>
                 </section>
               )}
+
+              <SolutionFulfillmentPreview service={service} owned={ownedInLibrary} />
 
               {portfolioProjects.length > 0 && (
                 <section>
@@ -351,40 +426,88 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
             </div>
 
             <aside className="space-y-4">
+              {builder && (
+                <div className="rounded-3xl border border-slate-200 bg-white p-6">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Builder</p>
+                  <p className="text-lg font-black text-slate-900">{builderDisplayName}</p>
+                  <p className="text-sm text-slate-500 mt-1">{builder.headline}</p>
+                  <RecognitionBadgeList badges={builderBadges} size="sm" className="mt-3" />
+                </div>
+              )}
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Starting at</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Pricing
+                </p>
                 <p className="mt-2 text-3xl font-black text-slate-900">
-                  ${Number(service.starting_price_usd).toLocaleString()}
+                  {isFree ? "Free" : `$${Number(service.starting_price_usd).toLocaleString()}`}
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Delivery in {service.delivery_time_days} days
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {service.included_revisions} revision(s) included
-                  {Number(service.extra_revision_price_usd) > 0 &&
-                    ` · Extra revisions $${service.extra_revision_price_usd}`}
-                </p>
+                {!isInstant && (
+                  <>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Delivery in {service.delivery_time_days} days
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {service.included_revisions} revision(s) included
+                      {Number(service.extra_revision_price_usd) > 0 &&
+                        ` · Extra revisions $${service.extra_revision_price_usd}`}
+                    </p>
+                  </>
+                )}
+                {isInstant && (
+                  <p className="mt-2 text-sm text-slate-600">Instant digital delivery after purchase</p>
+                )}
                 {Number(service.rating_avg) > 0 && (
                   <div className="mt-4 flex items-center gap-2 text-sm text-slate-600">
                     <span className="text-amber-500">★</span>
                     {Number(service.rating_avg).toFixed(1)} · {service.review_count} reviews
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={handleBuyService}
-                  disabled={buying}
-                  className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {buying ? "Processing..." : "Buy Service"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomModal(true)}
-                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-700 transition-colors hover:bg-slate-100"
-                >
-                  Request Custom Project
-                </button>
+                {ownedInLibrary ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/buyer/library")}
+                    className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white"
+                  >
+                    Open in Library
+                  </button>
+                ) : isInstant && isFree ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleAcquireFreeSolution()}
+                    disabled={buying}
+                    className="mt-6 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {buying ? "Processing..." : "Acquire Free"}
+                  </button>
+                ) : isInstant && !isFree ? (
+                  <div className="mt-6">
+                    <RazorpayCheckoutButton
+                      amountUsd={Number(service.starting_price_usd)}
+                      itemId={service.id}
+                      transactionType="service_purchase"
+                      buttonText={`Buy for $${Number(service.starting_price_usd).toLocaleString()}`}
+                      redirectPath="/buyer/library"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleBuyService()}
+                    disabled={buying}
+                    className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {buying ? "Processing..." : "Buy AI Solution"}
+                  </button>
+                )}
+                {!isInstant && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomModal(true)}
+                    className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black uppercase tracking-widest text-slate-700 transition-colors hover:bg-slate-100"
+                  >
+                    Request Custom Project
+                  </button>
+                )}
                 {builder && (
                   <button
                     type="button"
@@ -445,7 +568,7 @@ export default function ServiceDetailPage({ params }: ServicePageProps) {
         <CustomProjectModal
           builderId={service.builder_id}
           serviceId={service.id}
-          builderName={builder?.full_name}
+          builderName={builderDisplayName}
           onClose={() => setShowCustomModal(false)}
           onSuccess={(cid) => router.push(`/buyer/messages?conversation=${cid}`)}
         />

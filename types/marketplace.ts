@@ -1,5 +1,8 @@
 export type ServiceStatus = "draft" | "published" | "paused" | "archived";
 
+export type PricingMode = "free" | "paid";
+export type DeliveryModel = "collaborative" | "instant";
+
 export type ProjectRequestStatus =
   | "pending"
   | "accepted"
@@ -52,7 +55,12 @@ export interface Service {
   requirements_from_buyer: string | null;
   status: ServiceStatus;
   archived_at?: string | null;
+  pricing_mode: PricingMode;
+  delivery_model: DeliveryModel;
+  capability_instant_download?: boolean;
+  capability_secure_delivery?: boolean;
   starting_price_usd: number;
+  sales_count: number;
   view_count: number;
   order_count: number;
   rating_avg: number;

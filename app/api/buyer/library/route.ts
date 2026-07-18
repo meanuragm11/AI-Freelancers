@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
 import { createSupabaseAdminClient, getAuthenticatedUser } from '@/lib/server/supabase';
 import { fetchLibraryAssetsForUser } from '@/lib/buyer/library';
 
@@ -16,6 +17,7 @@ export async function GET() {
         purchased_at: asset.purchased_at,
         source: asset.source,
         component_id: asset.component_id,
+        service_id: asset.service_id,
         version: asset.version,
         asset_type: asset.asset_type,
         has_download: asset.has_download,
@@ -27,7 +29,6 @@ export async function GET() {
           category: asset.component.category,
           thumbnail_url: asset.component.thumbnail_url,
           delivery_method: asset.component.delivery_method,
-          license_type: asset.component.license_type,
           builder_id: asset.component.builder_id,
           status: asset.component.status,
           has_download: asset.has_download,
@@ -35,7 +36,7 @@ export async function GET() {
         builder: asset.builder
           ? {
               id: asset.builder.id,
-              full_name: asset.builder.full_name,
+              full_name: formatBuilderName(asset.builder.full_name),
               avatar_url: asset.builder.avatar_url,
               headline: asset.builder.headline,
             }

@@ -150,7 +150,7 @@ export default function AboutPage({
                   href="/buyer/discover"
                   className="font-bold text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
-                  Hire AI talent
+                  Discover experts
                 </Link>{' '}
                 or{' '}
                 <Link

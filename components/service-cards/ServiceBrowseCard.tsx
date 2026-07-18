@@ -3,6 +3,9 @@
 import React, { memo } from "react";
 import Image from "@/components/RemoteImage";
 import { isDisplayableImageUrl } from "@/lib/images";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
+import RecognitionBadge from "@/components/arena/RecognitionBadge";
+import type { RecognitionBadgeGrant } from "@/lib/arena/badges/types";
 
 export type ServiceBrowseCardProps = {
   category: string;
@@ -17,6 +20,7 @@ export type ServiceBrowseCardProps = {
   deliveryTimeDays: number;
   isVerified: boolean;
   isTopExpert: boolean;
+  recognitionBadge?: RecognitionBadgeGrant | null;
   index?: number;
   className?: string;
   footer?: React.ReactNode;
@@ -91,17 +95,20 @@ function ServiceBrowseCardComponent({
   deliveryTimeDays,
   isVerified,
   isTopExpert,
+  recognitionBadge = null,
   index = 0,
   className = "",
   footer,
   showViewDetails = false,
 }: ServiceBrowseCardProps) {
-  const displayName = fullName?.trim() || "Verified Expert";
+  const displayName = formatBuilderName(fullName?.trim() || "Verified Expert");
   const displayHeadline = headline?.trim() || category;
   const safeCoverImage = isDisplayableImageUrl(coverImage) ? coverImage : undefined;
   const safeAvatarUrl = isDisplayableImageUrl(avatarUrl) ? avatarUrl : undefined;
 
-  const statusBadge = isTopExpert ? (
+  const statusBadge = recognitionBadge ? (
+    <RecognitionBadge badge={recognitionBadge} size="sm" />
+  ) : isTopExpert ? (
     <StatusPill variant="top">Top Expert</StatusPill>
   ) : isVerified ? (
     <StatusPill variant="verified">Verified</StatusPill>

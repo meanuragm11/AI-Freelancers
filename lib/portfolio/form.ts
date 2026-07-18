@@ -88,6 +88,11 @@ export function projectToFormState(project: PortfolioProject): PortfolioFormStat
   };
 }
 
+export function hasValidPortfolioProof(form: PortfolioFormState): boolean {
+  const validLinks = form.links.filter((link) => link.title.trim() && link.url.trim());
+  return validLinks.length > 0 || form.media_files.length > 0;
+}
+
 export function validatePortfolioForm(form: PortfolioFormState): PortfolioValidationResult {
   const errors: string[] = [];
 
@@ -98,11 +103,6 @@ export function validatePortfolioForm(form: PortfolioFormState): PortfolioValida
     errors.push("Short description is required.");
   }
 
-  const validLinks = form.links.filter((link) => link.title.trim() && link.url.trim());
-  if (validLinks.length === 0) {
-    errors.push("At least one project link with a title and URL is required.");
-  }
-
   for (const link of form.links) {
     const hasTitle = Boolean(link.title.trim());
     const hasUrl = Boolean(link.url.trim());
@@ -110,6 +110,10 @@ export function validatePortfolioForm(form: PortfolioFormState): PortfolioValida
       errors.push("Each link must include both a title and a URL.");
       break;
     }
+  }
+
+  if (!hasValidPortfolioProof(form)) {
+    errors.push("Please add at least one Project URL or upload at least one file.");
   }
 
   return { valid: errors.length === 0, errors };

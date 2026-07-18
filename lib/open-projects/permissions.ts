@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OpenProject, OpenProjectProposal } from './types';
+import { checkBuilderProposalLimits } from './limits';
 
 export async function canViewProject(
   supabase: SupabaseClient,
@@ -26,6 +27,11 @@ export async function canSubmitProposal(
   if (project.deleted_at) return { allowed: false, reason: 'Project no longer available' };
   if (project.status !== 'published') return { allowed: false, reason: 'Project is not accepting proposals' };
   if (project.buyer_id === userId) return { allowed: false, reason: 'You cannot propose on your own project' };
+
+  const limits = await checkBuilderProposalLimits(supabase, userId);
+  if (!limits.canSubmit) {
+    return { allowed: false, reason: limits.reason };
+  }
 
   const { data: profile } = await supabase
     .from('profiles')

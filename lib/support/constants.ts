@@ -3,7 +3,7 @@ export const SUPPORT_CATEGORIES = [
   'Withdrawal',
   'Escrow',
   'Service Purchase',
-  'AI Asset',
+  'AI Solution',
   'Custom Project',
   'Messaging',
   'Disputes',

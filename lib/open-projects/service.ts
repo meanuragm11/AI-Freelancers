@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatDisplayName } from '@/lib/display/formatDisplayName';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 import { sendNotification } from '@/lib/notifications/notificationService';
 import { NotificationType } from '@/lib/notifications/types';
@@ -8,29 +9,72 @@ import type {
   CreateProposalInput,
   OpenProject,
 } from './types';
+import {
+  checkBuilderProposalLimits,
+  incrementBuilderDailyCounter,
+  logMarketplaceAudit,
+} from './limits';
+import { checkDuplicateProjects } from './duplicateDetection';
+import { ACTIVE_BUYER_PROJECT_STATUSES } from './constants';
+import { runProjectModeration, queueProposalModeration } from '@/lib/moderation';
+import type { ProjectModerationOutcome } from '@/lib/moderation/types';
+import {
+  recordHiringActivity,
+  startProjectMonitoring,
+  canViewProject,
+  isProjectPubliclyVisible,
+} from './activityMonitoring';
+import { checkBuyerPublishingLimits } from './buyerRestrictions';
+import {
+  ensureNonEmptyFeatured,
+  rankBrowseProjects,
+  rankFeaturedProjects,
+} from './ranking';
+import { getBuyerPublicStats } from './verifiedBuyer';
 
 const PROJECT_SELECT = `
   *,
   skills:project_skills(skill),
   attachments:project_attachments(id, file_url, file_name, file_type),
-  buyer:profiles_public!buyer_id(id, full_name, avatar_url)
+  buyer:profiles_public!buyer_id(id, full_name, avatar_url, created_at, location, verified_buyer)
 `;
 
 const PUBLIC_PROJECT_SELECT = `
   *,
   skills:project_skills(skill),
-  attachments:project_attachments(id, file_url, file_name, file_type)
+  attachments:project_attachments(id, file_url, file_name, file_type),
+  buyer:profiles_public!buyer_id(id, full_name, avatar_url, created_at, location, verified_buyer)
 `;
 
-export function sanitizeProjectForPublicView<T extends { buyer_id?: string; buyer?: unknown }>(
-  project: T,
-  viewerId?: string | null
-): Omit<T, 'buyer'> {
+type PublicBuyerInfo = {
+  full_name?: string | null;
+  avatar_url?: string | null;
+  created_at?: string | null;
+  location?: string | null;
+  verified_buyer?: boolean | null;
+  total_jobs_posted?: number;
+  total_spent_usd?: number;
+};
+
+export function sanitizeProjectForPublicView<
+  T extends { buyer_id?: string; buyer?: PublicBuyerInfo | null },
+>(project: T, viewerId?: string | null): T {
   if (viewerId && project.buyer_id === viewerId) {
     return project;
   }
-  const { buyer: _buyer, ...rest } = project;
-  return rest;
+  const buyer = project.buyer;
+  const publicBuyer: PublicBuyerInfo | null = buyer
+    ? {
+        full_name: buyer.full_name ? formatDisplayName(buyer.full_name) : null,
+        avatar_url: buyer.avatar_url ?? null,
+        created_at: buyer.created_at ?? null,
+        location: buyer.location ?? null,
+        verified_buyer: buyer.verified_buyer ?? false,
+        total_jobs_posted: buyer.total_jobs_posted,
+        total_spent_usd: buyer.total_spent_usd,
+      }
+    : null;
+  return { ...project, buyer: publicBuyer };
 }
 
 export async function createProject(
@@ -82,13 +126,25 @@ export async function createProject(
     );
   }
 
-  if (isPublishing) {
+    if (isPublishing) {
     void logBusinessEvent({
       eventType: 'open_project_published',
       entityType: 'open_project',
       entityId: project.id,
       actorId: buyerId,
       summary: `Published open project "${input.title}"`,
+    });
+
+    await startProjectMonitoring(supabase, project.id, buyerId);
+
+    await runProjectModeration({
+      projectId: project.id,
+      buyerId,
+      title: input.title.trim(),
+      description: input.description.trim(),
+      category: input.category,
+      budgetMin: input.budget_min_usd,
+      budgetMax: input.budget_max_usd,
     });
   }
 
@@ -155,13 +211,40 @@ export async function updateProject(
 export async function publishProject(
   supabase: SupabaseClient,
   projectId: string,
-  buyerId: string
-): Promise<OpenProject> {
+  buyerId: string,
+  options: { acknowledgeDuplicate?: boolean } = {}
+): Promise<{ project: OpenProject; moderation: ProjectModerationOutcome }> {
+  const existing = await getProjectById(supabase, projectId);
+  if (!existing || existing.buyer_id !== buyerId) {
+    throw new Error('Project not found');
+  }
+
+  const buyerLimits = await checkBuyerPublishingLimits(supabase, buyerId, projectId);
+  if (!buyerLimits.canPublish) {
+    throw new Error(buyerLimits.reason ?? 'Publishing limit reached');
+  }
+
+  const duplicateCheck = await checkProjectDuplicates(supabase, buyerId, {
+    title: existing.title,
+    description: existing.description,
+    budget_min_usd: existing.budget_min_usd,
+    budget_max_usd: existing.budget_max_usd,
+    skills: existing.skills?.map((s: { skill: string }) => s.skill) ?? [],
+    excludeProjectId: projectId,
+  });
+
+  if (duplicateCheck.isDuplicate && !options.acknowledgeDuplicate) {
+    throw new Error(duplicateCheck.warning ?? 'Duplicate project detected');
+  }
+
   const { data: project, error } = await supabase
     .from('projects')
     .update({
       status: 'published',
       published_at: new Date().toISOString(),
+      duplicate_warning_acknowledged_at: duplicateCheck.isDuplicate
+        ? new Date().toISOString()
+        : existing.duplicate_warning_acknowledged_at ?? null,
     })
     .eq('id', projectId)
     .eq('buyer_id', buyerId)
@@ -171,6 +254,8 @@ export async function publishProject(
 
   if (error) throw error;
 
+  await startProjectMonitoring(supabase, projectId, buyerId);
+
   void logBusinessEvent({
     eventType: 'open_project_published',
     entityType: 'open_project',
@@ -179,7 +264,34 @@ export async function publishProject(
     summary: `Published open project "${project.title}"`,
   });
 
-  return project as OpenProject;
+  await logMarketplaceAudit(supabase, {
+    entity_type: 'project',
+    entity_id: projectId,
+    action: 'published',
+    actor_id: buyerId,
+    metadata: { duplicate_acknowledged: Boolean(options.acknowledgeDuplicate) },
+  });
+
+  const moderation = await runProjectModeration({
+    projectId,
+    buyerId,
+    title: project.title,
+    description: project.description ?? '',
+    category: project.category,
+    budgetMin: project.budget_min_usd,
+    budgetMax: project.budget_max_usd,
+  });
+
+  const { data: refreshed } = await supabase
+    .from('projects')
+    .select(PROJECT_SELECT)
+    .eq('id', projectId)
+    .maybeSingle();
+
+  return {
+    project: (refreshed ?? project) as OpenProject,
+    moderation,
+  };
 }
 
 export async function closeProject(
@@ -208,6 +320,11 @@ export async function reopenProject(
   projectId: string,
   buyerId: string
 ): Promise<OpenProject> {
+  const limits = await checkBuyerPublishingLimits(supabase, buyerId, projectId);
+  if (!limits.canPublish) {
+    throw new Error(limits.reason ?? 'Publishing limit reached');
+  }
+
   const { data: project, error } = await supabase
     .from('projects')
     .update({
@@ -222,20 +339,25 @@ export async function reopenProject(
     .single();
 
   if (error) throw error;
+
+  await startProjectMonitoring(supabase, projectId, buyerId);
   return project as OpenProject;
 }
 
 export async function browseProjects(
   supabase: SupabaseClient,
-  filters: BrowseProjectsFilters = {}
+  filters: BrowseProjectsFilters = {},
+  viewerId?: string | null
 ) {
   const limit = filters.limit ?? 20;
   const offset = filters.offset ?? 0;
+  const useRanking = !filters.sort || filters.sort === 'newest';
 
   let query = supabase
     .from('projects')
     .select(PUBLIC_PROJECT_SELECT, { count: 'exact' })
-    .eq('status', 'published')
+    .in('status', ['published', 'receiving_proposals', 'negotiating'])
+    .eq('moderation_status', 'approved')
     .is('deleted_at', null);
 
   if (filters.q) {
@@ -246,25 +368,65 @@ export async function browseProjects(
   if (filters.budget_min != null) query = query.gte('budget_max_usd', filters.budget_min);
   if (filters.budget_max != null) query = query.lte('budget_min_usd', filters.budget_max);
 
-  switch (filters.sort) {
-    case 'budget_high':
-      query = query.order('budget_max_usd', { ascending: false, nullsFirst: false });
-      break;
-    case 'budget_low':
-      query = query.order('budget_min_usd', { ascending: true, nullsFirst: false });
-      break;
-    case 'proposals':
-      query = query.order('proposal_count', { ascending: false });
-      break;
-    default:
-      query = query.order('published_at', { ascending: false });
+  if (!useRanking) {
+    switch (filters.sort) {
+      case 'budget_high':
+        query = query.order('budget_max_usd', { ascending: false, nullsFirst: false });
+        break;
+      case 'budget_low':
+        query = query.order('budget_min_usd', { ascending: true, nullsFirst: false });
+        break;
+      case 'proposals':
+        query = query.order('proposal_count', { ascending: false });
+        break;
+      default:
+        query = query.order('published_at', { ascending: false });
+    }
+
+    query = query.range(offset, offset + limit - 1);
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return {
+      projects: (data ?? []).map((project) => sanitizeProjectForPublicView(project, viewerId)),
+      total: count ?? 0,
+    };
   }
 
-  query = query.range(offset, offset + limit - 1);
-
+  const fetchLimit = Math.max(limit + offset, 60);
+  query = query.order('published_at', { ascending: false }).limit(fetchLimit);
   const { data, error, count } = await query;
   if (error) throw error;
-  return { projects: data ?? [], total: count ?? 0 };
+
+  const ranked = rankBrowseProjects(data ?? [], fetchLimit);
+  const page = ranked.slice(offset, offset + limit);
+  return {
+    projects: page.map((project) => sanitizeProjectForPublicView(project, viewerId)),
+    total: count ?? ranked.length,
+  };
+}
+
+export async function getFeaturedProjects(
+  supabase: SupabaseClient,
+  limit = 3,
+  viewerId?: string | null
+) {
+  const fetchLimit = Math.max(limit * 8, 24);
+  const { data, error } = await supabase
+    .from('projects')
+    .select(PUBLIC_PROJECT_SELECT)
+    .in('status', ['published', 'receiving_proposals', 'negotiating'])
+    .eq('moderation_status', 'approved')
+    .is('deleted_at', null)
+    .order('published_at', { ascending: false })
+    .limit(fetchLimit);
+
+  if (error) throw error;
+
+  const pool = data ?? [];
+  const ranked = rankFeaturedProjects(pool, limit);
+  return ensureNonEmptyFeatured(ranked, pool, limit).map((project) =>
+    sanitizeProjectForPublicView(project, viewerId)
+  );
 }
 
 export async function getProjectById(supabase: SupabaseClient, projectId: string) {
@@ -277,6 +439,40 @@ export async function getProjectById(supabase: SupabaseClient, projectId: string
 
   if (error) throw error;
   return data;
+}
+
+export async function getProjectByIdForViewer(
+  supabase: SupabaseClient,
+  projectId: string,
+  viewerId?: string | null
+) {
+  const project = await getProjectById(supabase, projectId);
+  if (!project) return null;
+
+  const canView = await canViewProject(supabase, project, viewerId);
+  if (!canView) return null;
+
+  if (
+    project.buyer_id &&
+    (isProjectPubliclyVisible(project.status) || viewerId === project.buyer_id)
+  ) {
+    const { createSupabaseAdminClient } = await import('@/lib/server/supabase');
+    const admin = createSupabaseAdminClient();
+    const stats = await getBuyerPublicStats(admin, project.buyer_id);
+    project.buyer = {
+      ...(project.buyer ?? {}),
+      full_name: stats.fullName ?? project.buyer?.full_name,
+      created_at: stats.memberSince ?? project.buyer?.created_at,
+      location: stats.country ?? project.buyer?.location,
+      verified_buyer: stats.verifiedBuyer,
+      total_jobs_posted: stats.totalJobsPosted,
+      total_spent_usd: stats.totalSpentUsd,
+      response_rate_percent: stats.responseRatePercent,
+      average_first_response_label: stats.averageFirstResponseLabel,
+    };
+  }
+
+  return project;
 }
 
 export async function incrementProjectViews(
@@ -311,6 +507,11 @@ export async function createProposal(
     throw new Error('Project is not accepting proposals');
   }
 
+  const limits = await checkBuilderProposalLimits(supabase, builderId);
+  if (!limits.canSubmit) {
+    throw new Error(limits.reason ?? 'Proposal limit reached');
+  }
+
   const { data: proposal, error } = await supabase
     .from('project_proposals')
     .insert({
@@ -343,6 +544,8 @@ export async function createProposal(
   }
 
   if (proposal.status === 'submitted') {
+    await incrementBuilderDailyCounter(supabase, builderId, 'proposals_submitted');
+
     await supabase.from('proposal_status_history').insert({
       proposal_id: proposal.id,
       old_status: null,
@@ -366,6 +569,14 @@ export async function createProposal(
       actorId: builderId,
       summary: `Proposal submitted for project "${project.title}"`,
       metadata: { project_id: project.id, amount: input.proposed_amount_usd },
+    });
+
+    queueProposalModeration({
+      proposalId: proposal.id,
+      builderId,
+      coverLetter: input.cover_letter.trim(),
+      proposedAmountUsd: input.proposed_amount_usd,
+      projectTitle: project.title,
     });
   }
 
@@ -425,7 +636,7 @@ export async function updateProposalStatus(
 ) {
   const { data: existing } = await supabase
     .from('project_proposals')
-    .select('status, builder_id, project_id')
+    .select('status, builder_id, project_id, project:projects(buyer_id, status)')
     .eq('id', proposalId)
     .single();
 
@@ -447,6 +658,27 @@ export async function updateProposalStatus(
     changed_by: changedBy,
     note: note ?? null,
   });
+
+  const project = existing.project as { buyer_id?: string; status?: string } | null;
+  if (project?.buyer_id === changedBy && project.status && isProjectPubliclyVisible(project.status)) {
+    if (newStatus === 'shortlisted') {
+      await recordHiringActivity(supabase, {
+        projectId: existing.project_id,
+        buyerId: project.buyer_id,
+        actionType: 'shortlist_proposal',
+        actorId: changedBy,
+        targetId: proposalId,
+      });
+    } else if (newStatus === 'negotiating') {
+      await recordHiringActivity(supabase, {
+        projectId: existing.project_id,
+        buyerId: project.buyer_id,
+        actionType: 'start_negotiation',
+        actorId: changedBy,
+        targetId: proposalId,
+      });
+    }
+  }
 
   return proposal;
 }
@@ -488,60 +720,6 @@ export async function listSavedProjects(supabase: SupabaseClient, userId: string
 
   if (error) throw error;
   return data ?? [];
-}
-
-export async function askProjectQuestion(
-  supabase: SupabaseClient,
-  projectId: string,
-  askerId: string,
-  question: string
-) {
-  const { data, error } = await supabase
-    .from('project_questions')
-    .insert({ project_id: projectId, asker_id: askerId, question: question.trim() })
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  const { data: project } = await supabase
-    .from('projects')
-    .select('buyer_id, title')
-    .eq('id', projectId)
-    .single();
-
-  if (project) {
-    void sendNotification({
-      type: NotificationType.OPEN_PROJECT_QUESTION,
-      recipientId: project.buyer_id,
-      title: 'New question on your project',
-      message: `Someone asked a question about "${project.title}".`,
-      link: `/buyer/open-projects/${projectId}`,
-      metadata: { projectId, dashboardPath: '/buyer/open-projects' },
-    });
-  }
-
-  return data;
-}
-
-export async function answerProjectQuestion(
-  supabase: SupabaseClient,
-  questionId: string,
-  buyerId: string,
-  answer: string
-) {
-  const { data, error } = await supabase
-    .from('project_questions')
-    .update({ answer: answer.trim(), answered_at: new Date().toISOString() })
-    .eq('id', questionId)
-    .select('*, project:projects!inner(buyer_id)')
-    .single();
-
-  if (error) throw error;
-  if ((data as { project: { buyer_id: string } }).project.buyer_id !== buyerId) {
-    throw new Error('Forbidden');
-  }
-  return data;
 }
 
 export async function listBuyerProjects(
@@ -657,4 +835,97 @@ export async function softDeleteProject(
 
   if (error) throw error;
   return data;
+}
+
+export async function getSimilarProjects(
+  supabase: SupabaseClient,
+  projectId: string,
+  category: string | null,
+  limit = 3
+) {
+  if (!category) return [];
+
+  const { data, error } = await supabase
+    .from('projects')
+    .select(PUBLIC_PROJECT_SELECT)
+    .in('status', ['published', 'receiving_proposals', 'negotiating'])
+    .eq('category', category)
+    .neq('id', projectId)
+    .is('deleted_at', null)
+    .eq('moderation_status', 'approved')
+    .order('published_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function checkProjectDuplicates(
+  supabase: SupabaseClient,
+  buyerId: string,
+  input: {
+    title: string;
+    description: string;
+    budget_min_usd?: number | null;
+    budget_max_usd?: number | null;
+    skills?: string[];
+    excludeProjectId?: string;
+  }
+) {
+  let query = supabase
+    .from('projects')
+    .select(`
+      id, title, description, status, budget_min_usd, budget_max_usd,
+      skills:project_skills(skill)
+    `)
+    .eq('buyer_id', buyerId)
+    .is('deleted_at', null)
+    .in('status', [...ACTIVE_BUYER_PROJECT_STATUSES, 'closed', 'hired']);
+
+  if (input.excludeProjectId) {
+    query = query.neq('id', input.excludeProjectId);
+  }
+
+  const { data } = await query;
+  return checkDuplicateProjects(input, data ?? []);
+}
+
+export async function getBuilderProposalEligibility(
+  supabase: SupabaseClient,
+  project: OpenProject,
+  userId: string | null
+) {
+  if (!userId) {
+    return { canSubmit: true, requiresAuth: true, reason: undefined, limits: null };
+  }
+
+  if (project.buyer_id === userId) {
+    return {
+      canSubmit: false,
+      requiresAuth: false,
+      reason: 'You cannot propose on your own project',
+      limits: null,
+    };
+  }
+
+  if (project.status !== 'published' && project.status !== 'receiving_proposals' && project.status !== 'negotiating') {
+    return {
+      canSubmit: false,
+      requiresAuth: false,
+      reason: 'This project is not accepting proposals',
+      limits: null,
+    };
+  }
+
+  const { canSubmitProposal } = await import('./permissions');
+  const permission = await canSubmitProposal(supabase, project, userId);
+  const limits = await checkBuilderProposalLimits(supabase, userId);
+
+  return {
+    canSubmit: permission.allowed,
+    requiresAuth: false,
+    reason: permission.reason,
+    limits,
+    hasExistingProposal: permission.reason?.includes('already submitted') ?? false,
+  };
 }

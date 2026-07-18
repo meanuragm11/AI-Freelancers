@@ -80,7 +80,7 @@ export default function FounderUserDetailPage() {
 
   if (!data) return null;
 
-  const { profile, email, loginHistory, services, aiAssets, projects, transactions, reviews, supportTickets, disputes, withdrawals } = data;
+  const { profile, email, loginHistory, services, projects, transactions, reviews, supportTickets, disputes, withdrawals } = data;
 
   return (
     <div className="space-y-6">
@@ -95,7 +95,12 @@ export default function FounderUserDetailPage() {
               <Badge label={profile.role || 'user'} tone="slate" />
               {profile.is_freelancer && <Badge label="Builder" tone="purple" />}
               {profile.is_admin && <Badge label="Founder/Admin" tone="rose" />}
-              {profile.is_verified && <Badge label="Verified" tone="green" />}
+              {profile.is_verified && <Badge label="Verified Builder" tone="green" />}
+              {profile.verified_buyer && <Badge label="Verified Buyer" tone="green" />}
+              {profile.requires_founder_publish_approval && (
+                <Badge label="Needs Publish Approval" tone="amber" />
+              )}
+              {profile.editors_pick && <Badge label="Editor's Pick" tone="purple" />}
               {profile.account_status === 'banned' && <Badge label="Banned" tone="rose" />}
               {profile.account_status === 'suspended' && (
                 <Badge
@@ -111,12 +116,44 @@ export default function FounderUserDetailPage() {
 
           <div className="flex flex-col gap-2 shrink-0">
             <button
+              onClick={() => toggleFlag('editors_pick', !profile.editors_pick)}
+              disabled={saving || !profile.is_freelancer}
+              className="px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest bg-violet-50 hover:bg-violet-100 text-violet-700 transition-colors disabled:opacity-50"
+            >
+              {profile.editors_pick ? "Revoke Editor's Pick" : "Grant Editor's Pick"}
+            </button>
+            <button
               onClick={() => toggleFlag('is_verified', !profile.is_verified)}
               disabled={saving}
               className="px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-50"
             >
               {profile.is_verified ? 'Revoke Verification' : 'Grant Verification'}
             </button>
+            {profile.requires_founder_publish_approval && (
+              <button
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const res = await fetch(`/api/founder/users/${userId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ approvePublishing: true }),
+                    });
+                    const payload = await res.json();
+                    if (!res.ok) throw new Error(payload.error || 'Failed to approve publishing');
+                    setData((prev: any) => ({ ...prev, profile: payload.profile }));
+                  } catch (updateError: unknown) {
+                    setError(updateError instanceof Error ? updateError.message : 'Failed to approve publishing');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50"
+              >
+                Approve Unlimited Publishing
+              </button>
+            )}
             <button
               onClick={() => toggleFlag('is_admin', !profile.is_admin)}
               disabled={saving}
@@ -153,8 +190,8 @@ export default function FounderUserDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Panel title={`Services (${services.length})`}>
-            {services.length === 0 ? <EmptyRow label="No services published." /> : (
+          <Panel title={`AI Solutions (${services.length})`}>
+            {services.length === 0 ? <EmptyRow label="No AI solutions published." /> : (
               <div className="space-y-2">
                 {services.map((s: any) => (
                   <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100">
@@ -163,22 +200,6 @@ export default function FounderUserDetailPage() {
                       <p className="text-xs text-slate-400">{s.order_count} orders · {money(s.starting_price_usd)} starting</p>
                     </div>
                     <Badge label={s.status} tone={s.status === 'published' ? 'green' : 'slate'} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel title={`AI Assets (${aiAssets.length})`}>
-            {aiAssets.length === 0 ? <EmptyRow label="No AI assets listed." /> : (
-              <div className="space-y-2">
-                {aiAssets.map((a: any) => (
-                  <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{a.title}</p>
-                      <p className="text-xs text-slate-400">{a.sales_count} sales · {money(a.price_usd)}</p>
-                    </div>
-                    <Badge label={a.status} tone={a.status === 'published' ? 'green' : 'slate'} />
                   </div>
                 ))}
               </div>

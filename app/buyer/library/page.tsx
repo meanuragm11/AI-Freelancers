@@ -78,17 +78,17 @@ export default function AssetLibraryPage() {
               </svg>
               Back to Dashboard
             </Link>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">My AI Assets</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">My AI Solutions</h1>
             <p className="mt-1 text-sm font-medium text-slate-500">
               Your purchased library — open, preview, and download anytime.
             </p>
           </div>
 
           <Link
-            href="/buyer/discover?tab=components"
+            href="/buyer/discover"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-md transition-colors hover:bg-blue-600"
           >
-            Browse Asset Store
+            Discover AI Solutions
           </Link>
         </div>
 
@@ -162,7 +162,7 @@ export default function AssetLibraryPage() {
         ) : (
           <>
             <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              {filteredAssets.length} asset{filteredAssets.length === 1 ? "" : "s"}
+              {filteredAssets.length} solution{filteredAssets.length === 1 ? "" : "s"}
             </p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
               {filteredAssets.map((asset) => (

@@ -8,8 +8,8 @@ import FounderShell from '@/components/founder/FounderShell';
 import { generateNoIndexMetadata } from '@/lib/seo/metadata';
 
 export const metadata = generateNoIndexMetadata(
-  'Founder Command Center',
-  'Internal Zelance founder administration and operations dashboard.',
+  'Founder Operations Console',
+  'Internal Zelance founder operations console for marketplace administration.',
 );
 
 const supabaseAdmin = createClient(
@@ -54,7 +54,7 @@ export default async function FounderLayout({ children }: { children: React.Reac
             Access Denied
           </p>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-3">
-            Founder Command Center
+            Operations Console
           </h1>
           <p className="text-sm font-medium text-slate-500 mb-8">
             Your account does not have founder admin privileges. Contact platform operations if

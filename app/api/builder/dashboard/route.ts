@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formatDisplayName } from '@/lib/display/formatDisplayName';
 import { computeBuilderEarningsLedger } from '@/lib/builder/earningsLedger';
 import { ACTIVE_COLLAB_STATUSES } from '@/lib/marketplace/status';
 import { requireBuilderAccount } from '@/lib/server/builderAuth';
@@ -26,7 +27,18 @@ export async function GET() {
     if (collabsRes.error) throw collabsRes.error;
     if (componentsRes.error) throw componentsRes.error;
 
-    const collabs = collabsRes.data ?? [];
+    const collabs = (collabsRes.data ?? []).map((collab) => {
+      const buyerProfile = collab.profiles as { full_name?: string | null; avatar_url?: string | null } | null;
+      if (!buyerProfile?.full_name) return collab;
+
+      return {
+        ...collab,
+        profiles: {
+          ...buyerProfile,
+          full_name: formatDisplayName(buyerProfile.full_name),
+        },
+      };
+    });
     const components = componentsRes.data ?? [];
     const activeStatuses = ACTIVE_COLLAB_STATUSES as readonly string[];
 

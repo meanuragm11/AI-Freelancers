@@ -15,6 +15,7 @@ import { isDisplayableImageUrl } from "@/lib/images";
 type ProfileInfoCardsProps = {
   profile: BuilderProfileView;
   serviceCount: number;
+  displayName?: string;
 };
 
 function StatCard({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
@@ -26,8 +27,9 @@ function StatCard({ label, value, accent }: { label: string; value: React.ReactN
   );
 }
 
-export default function ProfileInfoCards({ profile, serviceCount }: ProfileInfoCardsProps) {
+export default function ProfileInfoCards({ profile, serviceCount, displayName }: ProfileInfoCardsProps) {
   const avatarUrl = isDisplayableImageUrl(profile.avatar_url) ? profile.avatar_url : undefined;
+  const name = displayName ?? profile.full_name;
 
   return (
     <div className="space-y-6">
@@ -145,15 +147,15 @@ export default function ProfileInfoCards({ profile, serviceCount }: ProfileInfoC
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-200">
             {avatarUrl ? (
-              <Image src={avatarUrl} fill className="object-cover" alt={profile.full_name} sizes="48px" />
+              <Image src={avatarUrl} fill className="object-cover" alt={name} sizes="48px" />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-sm font-black text-slate-500">
-                {getInitials(profile.full_name)}
+                {getInitials(name)}
               </span>
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-slate-900">{profile.full_name}</p>
+            <p className="truncate text-sm font-black text-slate-900">{name}</p>
             <p className="truncate text-xs text-slate-500">{profile.headline || "AI Builder"}</p>
           </div>
         </div>

@@ -47,7 +47,7 @@ function EscrowIllustration() {
           {/* Buyer */}
           <div className="flex flex-col items-center gap-3 flex-shrink-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Buyer
+              Client
             </span>
             <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
               <BriefcaseIcon className="w-6 h-6 text-slate-600" strokeWidth={1.75} />
@@ -88,7 +88,7 @@ function EscrowIllustration() {
           {/* Builder */}
           <div className="flex flex-col items-center gap-3 flex-shrink-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Builder
+              AI Expert
             </span>
             <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200/80 shadow-sm flex items-center justify-center">
               <ComputerDesktopIcon className="w-6 h-6 text-slate-600" strokeWidth={1.75} />
@@ -174,14 +174,14 @@ export function OpenProjectsEscrowSection() {
                 href="/projects/new"
                 className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-7 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-colors duration-300 shadow-sm hover:shadow-md"
               >
-                Post a Project
+                Post Project
                 <ArrowRightIcon className="w-4 h-4" strokeWidth={2.5} />
               </Link>
               <Link
                 href="/projects"
                 className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 px-7 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300"
               >
-                Browse Projects
+                Open Projects
                 <ArrowRightIcon className="w-4 h-4 text-slate-400" strokeWidth={2.5} />
               </Link>
             </div>

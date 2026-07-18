@@ -92,7 +92,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
         .select('id, title, status, price_usd, builder_id')
         .eq('id', ticket.ai_asset_id)
         .maybeSingle();
-      related.aiAsset = data ?? null;
+      related.legacySolution = data ?? null;
     }
 
     return NextResponse.json({

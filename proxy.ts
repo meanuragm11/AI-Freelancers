@@ -83,6 +83,12 @@ export default async function proxy(request: NextRequest) {
     const isBuyerAccount = showsBuyerNav(profile);
 
     const isBuilderOnboardingPath = pathname === BUILDER_HOME;
+    const isBuyerMarketplacePath =
+      pathname === '/buyer/discover' ||
+      pathname.startsWith('/buyer/discover/') ||
+      pathname.startsWith('/buyer/components/') ||
+      pathname.startsWith('/buyer/services/') ||
+      pathname === '/buyer/saved';
 
     if (isBuilderPath && !isBuilderAccount && !isBuilderOnboardingPath) {
       const url = request.nextUrl.clone();
@@ -91,7 +97,7 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (isBuyerPath && !isBuyerAccount) {
+    if (isBuyerPath && !isBuyerAccount && !isBuyerMarketplacePath) {
       const url = request.nextUrl.clone();
       url.pathname = BUILDER_HOME;
       url.search = '';

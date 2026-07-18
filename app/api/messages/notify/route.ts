@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     }
 
     const result = await sendMessageNotificationForMessage(messageId);
+
     if (!result.ok && result.skipped !== 'message_not_found' && result.skipped !== 'collab_not_found') {
       return NextResponse.json({ ok: true, skipped: result.skipped });
     }
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true, skipped: result.skipped });
+    return NextResponse.json({ ok: true, skipped: result.skipped, moderationQueued: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });

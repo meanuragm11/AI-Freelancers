@@ -1,14 +1,10 @@
 export const FOUNDER_NAV_ITEMS = [
   { href: '/founder', label: 'Overview', icon: 'grid' },
   { href: '/founder/tickets', label: 'Support Tickets', icon: 'inbox' },
-  { href: '/founder/disputes', label: 'Dispute Center', icon: 'scale' },
-  { href: '/founder/payments', label: 'Payment Center', icon: 'card' },
-  { href: '/founder/projects', label: 'Open Projects', icon: 'inbox' },
+  { href: '/founder/disputes', label: 'Disputes', icon: 'scale' },
+  { href: '/founder/payments', label: 'Payments', icon: 'card' },
   { href: '/founder/users', label: 'Users', icon: 'users' },
-  { href: '/founder/fraud', label: 'Fraud & Risk', icon: 'shield' },
-  { href: '/founder/system', label: 'System Health', icon: 'pulse' },
-  { href: '/founder/search', label: 'Global Search', icon: 'search' },
-  { href: '/founder/audit', label: 'Audit Log', icon: 'clock' },
+  { href: '/founder/moderation', label: 'AI Moderation', icon: 'shield' },
 ] as const;
 
 export const INTERNAL_NOTE_ENTITY_TYPES = ['user', 'dispute', 'support_ticket', 'payment'] as const;

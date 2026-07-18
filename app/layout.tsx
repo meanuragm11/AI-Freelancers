@@ -9,6 +9,7 @@ import { generateGlobalSchemas } from '@/lib/seo/schema';
 import './globals.css';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
+import NotificationRoot from '@/components/notifications/NotificationRoot';
 
 const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -40,11 +41,13 @@ export default function RootLayout({
   return (
     <html lang={SITE_LANG} suppressHydrationWarning>
       <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 selection:text-blue-900">
-        {posthogKey ? (
-          <PostHogProvider>{body}</PostHogProvider>
-        ) : (
-          body
-        )}
+        <NotificationRoot>
+          {posthogKey ? (
+            <PostHogProvider>{body}</PostHogProvider>
+          ) : (
+            body
+          )}
+        </NotificationRoot>
       </body>
     </html>
   );

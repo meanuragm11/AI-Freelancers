@@ -2,6 +2,7 @@
 
 import Image from "@/components/RemoteImage";
 import Link from "next/link";
+import { formatBuilderName } from "@/lib/display/formatBuilderName";
 
 export type LibraryAssetCardData = {
   id: string;
@@ -46,7 +47,7 @@ export default function LibraryAssetCard({
   conversationId,
 }: LibraryAssetCardProps) {
   const componentId = asset.components.id;
-  const creatorName = asset.builder?.full_name || "Verified Creator";
+  const creatorName = formatBuilderName(asset.builder?.full_name || "Verified Creator");
   const contactHref = conversationId
     ? `/buyer/messages?conversation=${conversationId}`
     : asset.builder?.id
@@ -62,7 +63,7 @@ export default function LibraryAssetCard({
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover transition-transform duration-700 group-hover:scale-105"
-            alt={asset.components.title || "Asset thumbnail"}
+            alt={asset.components.title || "Solution thumbnail"}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">

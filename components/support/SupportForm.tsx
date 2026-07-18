@@ -249,7 +249,7 @@ export default function SupportForm({ onSubmitted }: SupportFormProps) {
           ['escrowId', 'Escrow ID'],
           ['projectId', 'Project ID'],
           ['serviceId', 'Service ID'],
-          ['aiAssetId', 'AI Asset ID'],
+          ['aiAssetId', 'AI Solution ID'],
         ].map(([key, label]) => (
           <div key={key}>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{label} (optional)</label>

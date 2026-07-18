@@ -1,3 +1,4 @@
+import { formatDisplayName } from '@/lib/display/formatDisplayName';
 import { sendEmailViaResend } from '@/lib/notifications/resend';
 
 /** @deprecated Use sendNotification from @/lib/notifications/notificationService */
@@ -19,15 +20,16 @@ export const sendMessageNotificationEmail = async ({
   inboxLink: string;
   collabTitle: string;
 }) => {
+  const maskedSenderName = formatDisplayName(senderName);
   const { sendNotification, NotificationType } = await import('@/lib/notifications/notificationService');
   await sendNotification({
     type: NotificationType.NEW_MESSAGE,
     recipientId: '',
     recipientEmail: to,
-    title: `New message from ${senderName}`,
+    title: `New message from ${maskedSenderName}`,
     message: preview,
     link: inboxLink,
-    metadata: { projectName: collabTitle, senderName },
+    metadata: { projectName: collabTitle, senderName: maskedSenderName },
     skipDbInsert: true,
   });
 };

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { generateNoIndexMetadata } from '@/lib/seo/metadata';
 
 export const metadata: Metadata = generateNoIndexMetadata(
-  'Buyer Dashboard',
+  'Workspace',
   'Manage your AI service purchases, open projects, and escrow-backed collaborations on Zelance.',
 );
 

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { isStaleAuthSessionError } from "@/lib/auth/errors";
-import { useRouter } from "next/navigation";
+import { resolvePostAuthDestination, saveAuthRedirect } from "@/lib/auth/postAuthRedirect";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 const UNIFIED_ROLE = "buyer" as const;
@@ -34,29 +35,34 @@ async function syncProfile(userId: string, fullName: string) {
   }
 }
 
-async function routeAfterAuth(userId: string) {
+async function routeAfterAuth(userId: string, redirectParam: string | null) {
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_freelancer")
     .eq("id", userId)
     .maybeSingle();
 
-  return profile?.is_freelancer ? "/builder/dashboard" : "/buyer/discover";
+  const defaultPath = profile?.is_freelancer ? "/builder/dashboard" : "/buyer/discover";
+  return resolvePostAuthDestination(redirectParam, defaultPath);
 }
 
 function AuthCallbackContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState("Securing your connection…");
 
   useEffect(() => {
     let redirected = false;
+
+    const redirectParam = searchParams.get("redirect");
+    if (redirectParam) saveAuthRedirect(redirectParam);
 
     const redirectToApp = async (userId: string, fullName: string) => {
       if (redirected) return;
       redirected = true;
 
       await syncProfile(userId, fullName);
-      const destination = await routeAfterAuth(userId);
+      const destination = await routeAfterAuth(userId, redirectParam);
       setStatus("Verification successful! Redirecting…");
       router.replace(destination);
     };
@@ -103,7 +109,7 @@ function AuthCallbackContent() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-6">

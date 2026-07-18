@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Image from '@/components/RemoteImage';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
 
 // We wrap the main content in a component to safely use useSearchParams
 function ContractForm() {
@@ -214,13 +215,13 @@ function ContractForm() {
             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-100">
               <div className="w-16 h-16 rounded-full overflow-hidden relative bg-slate-100 shrink-0 shadow-inner flex items-center justify-center">
                 {expert.avatar_url ? (
-                  <Image src={expert.avatar_url} fill sizes="64px" className="object-cover" alt={expert.full_name} />
+                  <Image src={expert.avatar_url} fill sizes="64px" className="object-cover" alt={formatBuilderName(expert.full_name)} />
                 ) : (
-                  <span className="text-slate-400 text-lg font-bold">{expert.full_name?.charAt(0) || '?'}</span>
+                  <span className="text-slate-400 text-lg font-bold">{formatBuilderName(expert.full_name).charAt(0) || '?'}</span>
                 )}
               </div>
               <div className="overflow-hidden">
-                <h3 className="text-sm font-black text-slate-900 truncate">{expert.full_name}</h3>
+                <h3 className="text-sm font-black text-slate-900 truncate">{formatBuilderName(expert.full_name)}</h3>
                 <p className="text-[10px] font-bold text-slate-500 truncate mt-0.5">{expert.headline}</p>
               </div>
             </div>

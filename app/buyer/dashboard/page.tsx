@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from '@/components/RemoteImage';
 import { BuyerProjectCard } from '@/components/open-projects/BuyerProjectCard';
+import { getDisplayNameInitials } from '@/lib/display/formatDisplayName';
 
 type ProjectStatusLabel = 'Active' | 'Pending' | 'Completed' | 'Disputed' | 'Cancelled';
 
@@ -272,7 +273,7 @@ export default function BuyerDashboard() {
             {Icons.Hire} Explore AI Services
           </Link>
           <Link href="/buyer/library" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
-            {Icons.Assets} Purchased Assets
+            {Icons.Assets} My Library
           </Link>
           <Link href="/buyer/saved" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
             {Icons.Saved} Saved Experts
@@ -296,7 +297,7 @@ export default function BuyerDashboard() {
               <p className="text-sm font-medium text-slate-500 mt-1">Manage your AI projects, freelancers, and escrow balances.</p>
             </div>
             <Link href="/buyer/discover" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Hire AI Expert
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Discover Experts
             </Link>
             <Link href="/projects/new" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors">
               Post Open Project
@@ -327,7 +328,7 @@ export default function BuyerDashboard() {
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-300" onClick={() => router.push('/buyer/library')} role="button" tabIndex={0}>
               <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Purchased Assets</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Library Items</p>
               <p className="text-3xl font-black text-slate-900">{stats.purchasedAssets}</p>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-300" onClick={() => router.push('/buyer/saved')} role="button" tabIndex={0}>
@@ -386,7 +387,7 @@ export default function BuyerDashboard() {
                             {service.freelancerAvatar ? (
                               <Image src={service.freelancerAvatar} fill sizes="44px" className="object-cover" alt={service.freelancerName} />
                             ) : (
-                              <span className="text-slate-400 text-sm font-bold">{service.freelancerName.charAt(0)}</span>
+                              <span className="text-slate-400 text-sm font-bold">{getDisplayNameInitials(service.freelancerName)}</span>
                             )}
                           </div>
                           <div className="overflow-hidden">
@@ -508,7 +509,7 @@ export default function BuyerDashboard() {
               <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-10 text-center">
                 <p className="text-sm font-black text-slate-900 mb-1">No open projects posted</p>
                 <p className="text-xs font-medium text-slate-500 mb-4">Post a project and receive proposals from verified AI experts.</p>
-                <Link href="/projects/new" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Post a Project</Link>
+                <Link href="/projects/new" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Post Project</Link>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

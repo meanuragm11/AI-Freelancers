@@ -8,7 +8,9 @@ import HireConfirmationModal from '@/components/open-projects/HireConfirmationMo
 import { EmptyProjectsState } from '@/components/open-projects/EmptyStates';
 import { ProposalListCard } from '@/components/open-projects/ProposalListCard';
 import { ProjectActivityTimeline } from '@/components/open-projects/ProjectActivityTimeline';
-import { openBuilderConversation } from '@/lib/open-projects/openBuilderConversation';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
+import { useBuilderRecognitionMap } from '@/lib/arena/badges/useBuilderRecognitionMap';
+import { getPrimaryBadge } from '@/lib/arena/badges/types';
 
 const PROPOSAL_PAGE_SIZE = 10;
 type Tab = 'overview' | 'proposals' | 'activity';
@@ -116,17 +118,37 @@ export default function BuyerProjectDetailContent() {
     void loadProject();
   };
 
+  const handleShortlist = async (proposalId: string) => {
+    await fetch(`/api/projects/${id}/proposals/${proposalId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'shortlisted' }),
+    });
+    void loadProposals();
+    if (tab === 'activity') void loadActivity();
+  };
+
+  const handleRestore = async () => {
+    if (!confirm('Restore this project to the public marketplace?')) return;
+    const res = await fetch(`/api/projects/${id}/restore`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? 'Failed to restore project');
+      return;
+    }
+    void loadProject();
+  };
+
   const handleMessage = async (proposal: any) => {
     if (!userId || !project) return;
     setMessagingId(proposal.id);
     try {
-      const conversationId = await openBuilderConversation({
-        buyerId: userId,
-        builderId: proposal.builder_id,
-        projectTitle: project.title,
-        projectDescription: project.description,
+      const res = await fetch(`/api/projects/${id}/proposals/${proposal.id}/message`, {
+        method: 'POST',
       });
-      router.push(`/buyer/messages?conversation=${conversationId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to open conversation');
+      router.push(`/buyer/messages?conversation=${data.conversationId}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to open conversation');
     } finally {
@@ -144,6 +166,8 @@ export default function BuyerProjectDetailContent() {
   const skills = project.skills?.map((s: { skill: string }) => s.skill) ?? [];
   const attachments = project.attachments ?? [];
   const proposalPages = Math.ceil(proposalsTotal / PROPOSAL_PAGE_SIZE);
+  const proposalBuilderIds = proposals.map((p) => p.builder_id).filter(Boolean);
+  const { badgeMap } = useBuilderRecognitionMap(proposalBuilderIds);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
@@ -162,9 +186,10 @@ export default function BuyerProjectDetailContent() {
               <span className={`inline-block px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest mb-3 ${
                 project.status === 'published' ? 'bg-green-100 text-green-700' :
                 project.status === 'hired' ? 'bg-blue-100 text-blue-700' :
+                project.status === 'archived' ? 'bg-purple-100 text-purple-700' :
                 project.status === 'closed' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
               }`}>
-                {project.status === 'published' ? 'Open' : project.status}
+                {project.status === 'published' ? 'Open' : project.status === 'archived' ? 'Archived' : project.status}
               </span>
               <h1 className="text-2xl font-black text-slate-900">{project.title}</h1>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{project.category}</p>
@@ -257,6 +282,9 @@ export default function BuyerProjectDetailContent() {
                 {project.status === 'closed' && (
                   <button type="button" onClick={handleReopen} className="px-6 py-3 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest">Reopen Project</button>
                 )}
+                {project.status === 'archived' && (
+                  <button type="button" onClick={handleRestore} className="px-6 py-3 rounded-xl bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest">Restore Project</button>
+                )}
                 {project.status === 'hired' && project.collab_id && (
                   <Link href={`/collab/${project.collab_id}`} className="bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Open Collab Workspace</Link>
                 )}
@@ -285,8 +313,10 @@ export default function BuyerProjectDetailContent() {
                         projectStatus={project.status}
                         onHire={setHireTarget}
                         onReject={handleReject}
+                        onShortlist={handleShortlist}
                         onMessage={handleMessage}
                         messaging={messagingId === p.id}
+                        recognitionBadge={getPrimaryBadge(badgeMap[p.builder_id] ?? [])}
                       />
                     ))}
                   </div>
@@ -327,7 +357,7 @@ export default function BuyerProjectDetailContent() {
           projectId={id!}
           projectTitle={project.title}
           proposalId={hireTarget.id}
-          builderName={hireTarget.builder?.full_name ?? 'Builder'}
+          builderName={formatBuilderName(hireTarget.builder?.full_name ?? 'Builder')}
           amount={Number(hireTarget.proposed_amount_usd)}
           onClose={() => setHireTarget(null)}
         />

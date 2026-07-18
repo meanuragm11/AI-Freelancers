@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireFounder, supabaseAdmin, logAdminAction } from '@/lib/founder/server';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
+import { computeBuilderBadges } from '@/lib/arena';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -25,7 +26,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const [
       authUser,
       services,
-      aiAssets,
       collabsAsBuyer,
       collabsAsBuilder,
       transactions,
@@ -40,11 +40,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
       supabaseAdmin
         .from('services')
         .select('id, title, status, starting_price_usd, order_count, created_at')
-        .eq('builder_id', id)
-        .order('created_at', { ascending: false }),
-      supabaseAdmin
-        .from('components')
-        .select('id, title, status, price_usd, sales_count, created_at')
         .eq('builder_id', id)
         .order('created_at', { ascending: false }),
       supabaseAdmin
@@ -112,7 +107,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
         lastActiveAt: profile.last_active_at,
       },
       services: services.data ?? [],
-      aiAssets: aiAssets.data ?? [],
       projects: {
         asBuyer: collabsAsBuyer.data ?? [],
         asBuilder: collabsAsBuilder.data ?? [],
@@ -138,7 +132,30 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const allowedFields = ['is_admin', 'is_verified', 'kyc_status', 'payouts_enabled'];
+
+    if (body.approvePublishing === true) {
+      const { approveBuyerPublishing } = await import('@/lib/open-projects/buyerRestrictions');
+      await approveBuyerPublishing(supabaseAdmin, id, auth.actor.id);
+
+      const { data: updated, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      await logAdminAction({
+        actor: auth.actor,
+        action: 'user.approve_publishing',
+        targetType: 'user',
+        targetId: id,
+      });
+
+      return NextResponse.json({ profile: updated });
+    }
+
+    const allowedFields = ['is_admin', 'is_verified', 'kyc_status', 'payouts_enabled', 'editors_pick'];
     const updates: Record<string, unknown> = {};
 
     for (const field of allowedFields) {
@@ -163,6 +180,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       .single();
 
     if (error) throw error;
+
+    if (updates.editors_pick !== undefined && updated?.is_freelancer) {
+      await computeBuilderBadges(supabaseAdmin, id).catch(() => {});
+    }
 
     await logAdminAction({
       actor: auth.actor,

@@ -32,13 +32,13 @@ export default function ServiceFormModal({
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
-              {editingService ? "Edit Service" : "New Service"}
+              {editingService ? "Edit AI Solution" : "Create AI Solution"}
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-900">
-              {editingService ? editingService.title : "Create AI Service Listing"}
+              {editingService ? editingService.title : "Publish AI Solution"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Build a professional fixed-price service for the Zelance marketplace.
+              Publish freelance services, ready-to-use AI solutions, downloads, and more on one unified marketplace.
             </p>
           </div>
           <button

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FOUNDER_NAV_ITEMS } from '@/lib/founder/constants';
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -36,21 +36,14 @@ const ICONS: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   ),
-  pulse: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h4l2-7 4 14 2-7h6" />
-    </svg>
-  ),
-  search: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-    </svg>
-  ),
-  clock: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
+};
+
+type SearchResult = {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
 };
 
 type FounderShellProps = {
@@ -59,16 +52,73 @@ type FounderShellProps = {
   children: React.ReactNode;
 };
 
-export default function FounderShell({ actorName, actorEmail, children }: FounderShellProps) {
+function FounderShellInner({ actorName, actorEmail, children }: FounderShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get('q') ?? '';
+
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(urlQuery);
+  const [searchOpen, setSearchOpen] = useState(Boolean(urlQuery));
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [results, setResults] = useState<SearchResult[]>([]);
+
+  useEffect(() => {
+    setQuery(urlQuery);
+    setSearchOpen(Boolean(urlQuery));
+  }, [urlQuery]);
+
+  useEffect(() => {
+    if (!urlQuery.trim()) {
+      setResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchLoading(true);
+    setSearchError(null);
+
+    fetch(`/api/founder/search?q=${encodeURIComponent(urlQuery.trim())}`)
+      .then(async (res) => {
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Search failed');
+        if (!cancelled) setResults(payload.results ?? []);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setResults([]);
+          setSearchError(err instanceof Error ? err.message : 'Search failed');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSearchLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [urlQuery]);
+
+  const groupedResults = useMemo(() => {
+    const groups = new Map<string, SearchResult[]>();
+    for (const result of results) {
+      const list = groups.get(result.type) ?? [];
+      list.push(result);
+      groups.set(result.type, list);
+    }
+    return groups;
+  }, [results]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!query.trim()) return;
-    router.push(`/founder/search?q=${encodeURIComponent(query.trim())}`);
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setSearchOpen(true);
+    router.push(`/founder?q=${encodeURIComponent(trimmed)}`);
   };
 
   const isActive = (href: string) =>
@@ -76,26 +126,24 @@ export default function FounderShell({ actorName, actorEmail, children }: Founde
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-100 flex">
-      {/* SIDEBAR */}
       <aside
         className={`fixed md:sticky top-0 md:top-20 z-40 h-screen md:h-[calc(100vh-80px)] w-72 shrink-0 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-900/30">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shrink-0">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Zelance</p>
-            <p className="text-sm font-black text-white uppercase tracking-widest">Command Center</p>
+            <p className="text-sm font-black text-white uppercase tracking-widest">Operations Console</p>
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 px-3 mb-2 mt-1">Operations</p>
           {FOUNDER_NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -103,7 +151,7 @@ export default function FounderShell({ actorName, actorEmail, children }: Founde
               onClick={() => setMobileOpen(false)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                 isActive(item.href)
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
+                  ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
@@ -124,56 +172,95 @@ export default function FounderShell({ actorName, actorEmail, children }: Founde
             href="/"
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
             Exit to Site
           </Link>
         </div>
       </aside>
 
       {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* MAIN */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-20 z-20 bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center gap-4">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100"
-            aria-label="Open navigation"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-
-          <form onSubmit={handleSearch} className="flex-1 max-w-xl">
-            <div className="relative">
-              <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+        <header className="sticky top-20 z-20 bg-white border-b border-slate-200 px-4 md:px-8 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100"
+              aria-label="Open navigation"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search ticket, transaction, escrow, user, email, service, asset..."
-                className="w-full bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all"
-              />
-            </div>
-          </form>
+            </button>
 
-          <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            Founder Access
-          </span>
+            <form onSubmit={handleSearch} className="flex-1 max-w-xl relative">
+              <div className="relative">
+                <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                </svg>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => urlQuery && setSearchOpen(true)}
+                  placeholder="Search users, projects, tickets, disputes, escrows, payments…"
+                  className="w-full bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-slate-900 outline-none"
+                />
+              </div>
+
+              {searchOpen && urlQuery && (
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-lg max-h-[420px] overflow-y-auto z-30">
+                  {searchLoading && (
+                    <p className="px-4 py-3 text-sm text-slate-500">Searching for &ldquo;{urlQuery}&rdquo;…</p>
+                  )}
+                  {!searchLoading && searchError && (
+                    <p className="px-4 py-3 text-sm text-rose-600">{searchError}</p>
+                  )}
+                  {!searchLoading && !searchError && results.length === 0 && (
+                    <p className="px-4 py-3 text-sm text-slate-500">No results for &ldquo;{urlQuery}&rdquo;.</p>
+                  )}
+                  {!searchLoading && !searchError && results.length > 0 && (
+                    <div className="divide-y divide-slate-100">
+                      {[...groupedResults.entries()].map(([type, items]) => (
+                        <div key={type}>
+                          <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
+                            {type}
+                          </p>
+                          {items.map((result) => (
+                            <Link
+                              key={`${result.type}-${result.id}`}
+                              href={result.href}
+                              onClick={() => setSearchOpen(false)}
+                              className="block px-4 py-2.5 hover:bg-slate-50"
+                            >
+                              <p className="text-sm font-medium text-slate-900 truncate">{result.title}</p>
+                              <p className="text-xs text-slate-500 truncate">{result.subtitle}</p>
+                            </Link>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </form>
+
+            <span className="hidden lg:inline-flex items-center text-[10px] font-black uppercase tracking-widest text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
+              Founder Access
+            </span>
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 max-w-[1600px] w-full mx-auto">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function FounderShell(props: FounderShellProps) {
+  return (
+    <Suspense fallback={<div className="min-h-[calc(100vh-80px)] bg-slate-100" />}>
+      <FounderShellInner {...props} />
+    </Suspense>
   );
 }

@@ -3,6 +3,9 @@
 import Image from '@/components/RemoteImage';
 import Link from 'next/link';
 import { pickDisplayableImageUrl } from '@/lib/images';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
+import RecognitionBadge from '@/components/arena/RecognitionBadge';
+import type { RecognitionBadgeGrant } from '@/lib/arena/badges/types';
 
 type Proposal = {
   id: string;
@@ -33,8 +36,10 @@ type Props = {
   projectStatus?: string;
   onHire?: (proposal: Proposal) => void;
   onReject?: (proposalId: string) => void;
+  onShortlist?: (proposalId: string) => void;
   onMessage?: (proposal: Proposal) => void;
   messaging?: boolean;
+  recognitionBadge?: RecognitionBadgeGrant | null;
 };
 
 export function ProposalListCard({
@@ -42,10 +47,13 @@ export function ProposalListCard({
   projectStatus,
   onHire,
   onReject,
+  onShortlist,
   onMessage,
   messaging,
+  recognitionBadge = null,
 }: Props) {
   const builder = proposal.builder ?? {};
+  const builderDisplayName = formatBuilderName(builder.full_name);
   const canAct = projectStatus === 'published' && ['submitted', 'shortlisted'].includes(proposal.status);
 
   return (
@@ -64,7 +72,10 @@ export function ProposalListCard({
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-slate-900 truncate">{builder.full_name}</p>
+            <p className="text-sm font-black text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
+              {builderDisplayName}
+              {recognitionBadge && <RecognitionBadge badge={recognitionBadge} size="sm" />}
+            </p>
             <p className="text-[10px] font-bold text-slate-400 uppercase truncate">{builder.headline}</p>
             {builder.average_rating != null && builder.average_rating > 0 && (
               <p className="text-[10px] font-bold text-amber-600">★ {Number(builder.average_rating).toFixed(1)}</p>
@@ -101,6 +112,15 @@ export function ProposalListCard({
               className="px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               {messaging ? '…' : 'Message'}
+            </button>
+          )}
+          {canAct && onShortlist && proposal.status === 'submitted' && (
+            <button
+              type="button"
+              onClick={() => onShortlist(proposal.id)}
+              className="px-3 py-2 rounded-xl border border-blue-200 text-[10px] font-black uppercase text-blue-700 hover:bg-blue-50"
+            >
+              Shortlist
             </button>
           )}
           {canAct && onHire && (

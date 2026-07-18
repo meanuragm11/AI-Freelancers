@@ -18,7 +18,10 @@ export enum NotificationType {
   OPEN_PROJECT_PROPOSAL = 'open_project_proposal',
   OPEN_PROJECT_HIRED = 'open_project_hired',
   OPEN_PROJECT_PROPOSAL_REJECTED = 'open_project_proposal_rejected',
-  OPEN_PROJECT_QUESTION = 'open_project_question',
+  OPEN_PROJECT_ACTIVITY_REMINDER_1 = 'open_project_activity_reminder_1',
+  OPEN_PROJECT_ACTIVITY_REMINDER_2 = 'open_project_activity_reminder_2',
+  OPEN_PROJECT_AUTO_ARCHIVED = 'open_project_auto_archived',
+  SYSTEM = 'system',
 }
 
 export interface NotificationMetadata {

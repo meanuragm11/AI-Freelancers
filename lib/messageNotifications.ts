@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { formatDisplayName } from '@/lib/display/formatDisplayName';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
+import { queueChatModerationFromMessageId } from '@/lib/moderation/queueFromMessage';
 
 
 
@@ -60,7 +62,7 @@ export async function sendMessageNotificationForMessage(
   const inboxLink =
     collab.buyer_id === recipientId ? '/buyer/messages' : '/builder/inbox';
 
-  const senderName = senderProfile?.full_name || 'Someone';
+  const senderName = formatDisplayName(senderProfile?.full_name || 'Someone');
   const preview = formatPreview(message.text || message.content || '');
 
   const result = await sendNotification({
@@ -81,6 +83,18 @@ export async function sendMessageNotificationForMessage(
   if (!result.success) {
     return { ok: false, skipped: result.error };
   }
+
+  if (collab.buyer_id === message.sender_id) {
+    const { trackBuyerMessageEngagement } = await import('@/lib/open-projects/buyerTrustSignals');
+    void trackBuyerMessageEngagement(supabaseAdmin, {
+      collabId: collab.id,
+      buyerId: collab.buyer_id,
+      builderId: collab.builder_id,
+      messageContent: message.text || message.content || '',
+    });
+  }
+
+  void queueChatModerationFromMessageId(messageId);
 
   return { ok: true, skipped: result.emailSkippedReason };
 }

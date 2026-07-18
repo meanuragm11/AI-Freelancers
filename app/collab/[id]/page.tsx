@@ -10,6 +10,11 @@ import DisputeCenter from '@/components/DisputeCenter';
 import DisputeModal from '@/components/DisputeModal';
 import ReviewModal from '@/components/ReviewModal';
 import RefundPanel from '@/components/RefundPanel';
+import {
+  formatProfileDisplayName,
+  getDisplayNameInitials,
+  resolveDisplayName,
+} from '@/lib/display/formatDisplayName';
 
 type WorkspaceTab = 'overview' | 'milestones' | 'files' | 'disputes' | 'refunds';
 
@@ -192,6 +197,8 @@ export default function GlobalCollabWorkspace() {
   }
 
   const isCompleted = collab.status === 'completed' || collab.status === 'released';
+  const counterpartyDisplayName = formatProfileDisplayName(counterparty);
+  const counterpartyInitials = getDisplayNameInitials(resolveDisplayName(counterparty));
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
@@ -266,11 +273,11 @@ export default function GlobalCollabWorkspace() {
                 {counterparty?.avatar_url ? (
                   <Image src={counterparty.avatar_url} fill sizes="56px" className="object-cover" alt="Profile" />
                 ) : (
-                  <span className="text-slate-400 text-lg font-bold">{counterparty?.full_name?.charAt(0) || '?'}</span>
+                  <span className="text-slate-400 text-lg font-bold">{counterpartyInitials}</span>
                 )}
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-black text-slate-900 truncate">{counterparty?.full_name}</p>
+                <p className="text-sm font-black text-slate-900 truncate">{counterpartyDisplayName}</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">{counterparty?.headline}</p>
               </div>
             </div>
@@ -500,7 +507,7 @@ export default function GlobalCollabWorkspace() {
           collabId={collab.id}
           builderId={collab.builder_id}
           serviceId={collab.service_id}
-          builderName={counterparty?.full_name || 'the expert'}
+          builderName={counterpartyDisplayName || 'the expert'}
           onClose={() => setShowReviewModal(false)}
           onSuccess={() => {
             setShowReviewModal(false);

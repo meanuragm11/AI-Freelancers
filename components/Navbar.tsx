@@ -6,15 +6,24 @@ import Image from '@/components/RemoteImage';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { subscribeToOnlinePresence } from '@/lib/onlinePresenceChannel';
+import MessagesNavButton from "@/components/MessagesNavButton";
 import NotificationBell from "@/components/NotificationBell";
-import { isVerifiedBuilder, showsBuyerNav } from "@/lib/accountMode";
+import {
+  getWorkspaceHref,
+  isVerifiedBuilder,
+  showsBecomeExpertNav,
+  showsDiscoverExpertsNav,
+} from "@/lib/accountMode";
+
+const navLinkClass =
+  'text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors';
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [hasPurchases, setHasPurchases] = useState(false);
+  const [hasBuyerActivity, setHasBuyerActivity] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,7 +59,7 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!currentUser?.id) {
-      setHasPurchases(false);
+      setHasBuyerActivity(false);
       return;
     }
 
@@ -59,10 +68,10 @@ export default function Navbar() {
     fetch('/api/buyer/has-purchases')
       .then((res) => (res.ok ? res.json() : { hasPurchases: false }))
       .then((data) => {
-        if (!cancelled) setHasPurchases(Boolean(data.hasPurchases));
+        if (!cancelled) setHasBuyerActivity(Boolean(data.hasPurchases));
       })
       .catch(() => {
-        if (!cancelled) setHasPurchases(false);
+        if (!cancelled) setHasBuyerActivity(false);
       });
 
     return () => {
@@ -70,13 +79,11 @@ export default function Navbar() {
     };
   }, [currentUser?.id]);
 
-  // Track online presence app-wide so chat can show real status
   useEffect(() => {
     if (!currentUser?.id) return;
     return subscribeToOnlinePresence(currentUser.id, () => {});
   }, [currentUser?.id]);
 
-  // Accessibility: Close dropdowns on outside click or ESC key
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -108,8 +115,61 @@ export default function Navbar() {
     router.refresh();
   };
 
+  const navContext = { hasBuyerActivity };
   const isBuilderAccount = isVerifiedBuilder(profile);
-  const isBuyerAccount = showsBuyerNav(profile);
+  const showDiscoverExperts = showsDiscoverExpertsNav(profile, navContext);
+  const showBecomeExpert = showsBecomeExpertNav(profile);
+  const workspaceHref = getWorkspaceHref(profile);
+
+  const primaryNavLinks = (
+    <>
+      <Link href="/" className={navLinkClass}>
+        Home
+      </Link>
+      {showDiscoverExperts && (
+        <Link href="/buyer/discover" className={navLinkClass}>
+          Discover Experts
+        </Link>
+      )}
+      <Link href="/projects" className={navLinkClass}>
+        Open Projects
+      </Link>
+      {currentUser && (
+        <Link href="/projects/new" className={navLinkClass}>
+          Post Project
+        </Link>
+      )}
+      {currentUser && (
+        <Link href={workspaceHref} className={navLinkClass}>
+          Workspace
+        </Link>
+      )}
+      {showBecomeExpert && (
+        <Link href="/builder/dashboard" className={navLinkClass}>
+          Become an AI Expert
+        </Link>
+      )}
+    </>
+  );
+
+  const mobilePrimaryNavLinks = (
+    <>
+      <Link href="/" className="block text-lg font-black text-slate-900">Home</Link>
+      {showDiscoverExperts && (
+        <Link href="/buyer/discover" className="block text-lg font-black text-slate-900">Discover Experts</Link>
+      )}
+      <Link href="/projects" className="block text-lg font-black text-slate-900">Open Projects</Link>
+      {currentUser && (
+        <Link href="/projects/new" className="block text-lg font-black text-slate-900">Post Project</Link>
+      )}
+      {currentUser && (
+        <Link href={workspaceHref} className="block text-lg font-black text-slate-900">Workspace</Link>
+      )}
+      {showBecomeExpert && (
+        <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">Become an AI Expert</Link>
+      )}
+    </>
+  );
 
   return (
     <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
@@ -120,30 +180,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center justify-center flex-1 gap-10">
-          <Link href="/" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-            Home
-          </Link>
-          {(!currentUser || isBuyerAccount) && (
-            <Link href="/buyer/discover" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-              Hire AI Expert
-            </Link>
-          )}
-          <Link href="/projects" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-            Browse Projects
-          </Link>
-          {currentUser && (
-            <Link href="/projects/new" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-              Post a Project
-            </Link>
-          )}
-          {currentUser && hasPurchases && (
-            <Link href="/buyer/dashboard" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-              Manage Purchases
-            </Link>
-          )}
-          <Link href="/builder/dashboard" className="text-[11px] font-black text-slate-500 hover:text-slate-900 uppercase tracking-widest transition-colors">
-            {isBuilderAccount ? 'Builder Workspace' : 'Become AI Expert'}
-          </Link>
+          {primaryNavLinks}
         </div>
 
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
@@ -172,6 +209,7 @@ export default function Navbar() {
             </>
           ) : (
             <div className="flex items-center gap-2 md:gap-3">
+              <MessagesNavButton profile={profile} />
               <NotificationBell userId={currentUser.id} />
 
               <div className="hidden md:block relative" ref={dropdownRef}>
@@ -218,15 +256,17 @@ export default function Navbar() {
                         My Profile
                       </Link>
 
-                      <Link href="/builder/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
+                      <Link href={workspaceHref} role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
                         <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                        {isBuilderAccount ? 'Workspace' : 'Become AI Expert'}
+                        Workspace
                       </Link>
 
-                      <Link href="/buyer/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
-                        <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                        Manage Purchases
-                      </Link>
+                      {showBecomeExpert && (
+                        <Link href="/builder/dashboard" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
+                          <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                          Become an AI Expert
+                        </Link>
+                      )}
 
                       <Link href="/buyer/saved" role="menuitem" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors group">
                         <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
@@ -276,17 +316,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE MENU DROPDOWN */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-slate-200 absolute w-full h-[calc(100vh-80px)] overflow-y-auto z-40 pb-20 shadow-xl">
           <div className="p-6 space-y-6">
             <div className="space-y-4">
-              <Link href="/" className="block text-lg font-black text-slate-900">Home</Link>
-              {(!currentUser || isBuyerAccount) && <Link href="/buyer/discover" className="block text-lg font-black text-slate-900">Hire AI Experts</Link>}
-              <Link href="/projects" className="block text-lg font-black text-slate-900">Browse Projects</Link>
-              {currentUser && <Link href="/projects/new" className="block text-lg font-black text-slate-900">Post a Project</Link>}
-              {currentUser && hasPurchases && <Link href="/buyer/dashboard" className="block text-lg font-black text-slate-900">Manage Purchases</Link>}
-              <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">{isBuilderAccount ? 'Builder Workspace' : 'Become AI Expert'}</Link>
+              {mobilePrimaryNavLinks}
             </div>
             <div className="h-px bg-slate-200"></div>
 
@@ -313,10 +347,10 @@ export default function Navbar() {
 
                 <div className="space-y-1">
                   <Link href="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">👤 My Profile</Link>
-                  <Link href="/builder/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
-                    {isBuilderAccount ? '💼 Workspace' : '✨ Become AI Expert'}
-                  </Link>
-                  <Link href="/buyer/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">📁 Manage Purchases</Link>
+                  <Link href={workspaceHref} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💼 Workspace</Link>
+                  {showBecomeExpert && (
+                    <Link href="/builder/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">✨ Become an AI Expert</Link>
+                  )}
                   <Link href="/buyer/saved" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🔖 Saved Experts</Link>
                   <Link href={isBuilderAccount ? '/builder/wallet' : '/buyer/billing'} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💳 Payments</Link>
                   <Link href="/support" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🎫 Support</Link>

@@ -150,14 +150,14 @@ export default function AboutUsPage() {
           ),
         },
         {
-          id: 'growing-ai-asset-ecosystem',
-          title: 'Growing AI Asset Ecosystem',
+          id: 'growing-ai-solution-ecosystem',
+          title: 'Unified AI Solution Marketplace',
           level: 3,
           content: (
             <>
               <p>Our vision extends beyond freelance services.</p>
               <p>
-                We&apos;re building an ecosystem where creators will be able to publish and monetize AI assets such as prompts, workflows, templates, automation kits, datasets, reusable components, and other digital products that accelerate AI development.
+                We&apos;re building a unified marketplace where creators publish and monetize AI Solutions — fixed-price listings with secure fulfillment, clear deliverables, and instant digital access after purchase.
               </p>
             </>
           ),

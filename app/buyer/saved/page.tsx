@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import Image from '@/components/RemoteImage';
 import Link from 'next/link';
+import { formatBuilderName } from '@/lib/display/formatBuilderName';
+import { useBuilderRecognitionMap } from '@/lib/arena/badges/useBuilderRecognitionMap';
+import RecognitionBadge from '@/components/arena/RecognitionBadge';
 
 export default function SavedExperts() {
   const router = useRouter();
@@ -37,6 +40,8 @@ export default function SavedExperts() {
   // Performance: Memoize collection filtering
   const collections = useMemo(() => ['All', ...Array.from(new Set(savedExperts.map(s => s.collection_name).filter(Boolean)))], [savedExperts]);
   const filteredExperts = useMemo(() => activeCollection === 'All' ? savedExperts : savedExperts.filter(s => s.collection_name === activeCollection), [activeCollection, savedExperts]);
+  const expertIds = useMemo(() => filteredExperts.map((s) => s.profiles?.id).filter(Boolean), [filteredExperts]);
+  const { getPrimary } = useBuilderRecognitionMap(expertIds);
 
   const removeExpert = async (id: string) => {
     // Optimistic UI Removal
@@ -101,12 +106,15 @@ export default function SavedExperts() {
                     <div className="flex flex-col items-center text-center mb-6">
                       <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden relative mb-3 border-4 border-white shadow-sm flex items-center justify-center">
                         {expert.avatar_url ? (
-                          <Image priority src={expert.avatar_url} fill sizes="80px" className="object-cover" alt={expert.full_name} />
+                          <Image priority src={expert.avatar_url} fill sizes="80px" className="object-cover" alt={formatBuilderName(expert.full_name)} />
                         ) : (
-                          <span className="text-slate-400 text-xl font-bold">{expert.full_name?.charAt(0) || '?'}</span>
+                          <span className="text-slate-400 text-xl font-bold">{formatBuilderName(expert.full_name).charAt(0) || '?'}</span>
                         )}
                       </div>
-                      <h3 className="text-base font-black text-slate-900 leading-tight cursor-pointer hover:text-blue-600" onClick={() => router.push(`/profile/${expert.id}`)}>{expert.full_name}</h3>
+                      <h3 className="text-base font-black text-slate-900 leading-tight cursor-pointer hover:text-blue-600 flex items-center justify-center gap-1.5 flex-wrap" onClick={() => router.push(`/profile/${expert.id}`)}>
+                        {formatBuilderName(expert.full_name)}
+                        {getPrimary(expert.id) && <RecognitionBadge badge={getPrimary(expert.id)!} size="sm" />}
+                      </h3>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 line-clamp-1">{expert.headline}</p>
                     </div>
 

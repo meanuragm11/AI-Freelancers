@@ -1,5 +1,5 @@
-import ArenaLeaderboardView from '@/components/arena/ArenaLeaderboardView';
+import { redirect } from 'next/navigation';
 
-export default function BuilderArenaPage() {
-  return <ArenaLeaderboardView backHref="/builder/dashboard" backLabel="Back to Dashboard" />;
+export default function LegacyBuilderArenaPage() {
+  redirect('/builder/recognition');
 }

@@ -21,7 +21,10 @@ const TYPE_EMOJI: Record<NotificationType, string> = {
   open_project_proposal: '📨',
   open_project_hired: '🤝',
   open_project_proposal_rejected: '📭',
-  open_project_question: '❓',
+  open_project_activity_reminder_1: '⏰',
+  open_project_activity_reminder_2: '⚠️',
+  open_project_auto_archived: '📦',
+  system: '🛡️',
 };
 
 export interface BaseTemplateProps {

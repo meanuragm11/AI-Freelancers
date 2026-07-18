@@ -9,7 +9,7 @@ export default function AIIntellectualPropertyPolicyPage() {
   return (
     <LegalPage
       title="AI & Intellectual Property Policy"
-      description="This policy covers ownership, licensing, and usage rights for AI-generated deliverables, components, and marketplace assets."
+      description="This policy covers ownership, licensing, and usage rights for AI-generated deliverables and marketplace AI Solutions."
       lastUpdated={LAST_UPDATED}
       sections={[
         {

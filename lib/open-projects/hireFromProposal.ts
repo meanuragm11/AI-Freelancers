@@ -5,6 +5,7 @@ import { proposalCardMessage } from '@/lib/project-proposals/types';
 import type { ProposalMilestone } from '@/lib/project-proposals/types';
 import { sendNotification } from '@/lib/notifications/notificationService';
 import { NotificationType } from '@/lib/notifications/types';
+import { recordHiringActivity } from '@/lib/open-projects/activityMonitoring';
 
 export type HireFromProposalResult = {
   collabId: string;
@@ -210,6 +211,14 @@ export async function hireFromProposal(
       metadata: { projectId, dashboardPath: '/builder/proposals' },
     });
   }
+
+  await recordHiringActivity(supabaseAdmin, {
+    projectId,
+    buyerId,
+    actionType: 'hire',
+    actorId: buyerId,
+    targetId: proposalId,
+  });
 
   await supabaseAdmin
     .from('projects')

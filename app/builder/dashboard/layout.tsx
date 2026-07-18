@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { becomeExpertPageMetadata } from '@/lib/seo/pages';
+import { workspacePageMetadata } from '@/lib/seo/pages';
 
-export const metadata = becomeExpertPageMetadata;
+export const metadata = workspacePageMetadata;
 
 export default function BuilderDashboardLayout({
   children,
