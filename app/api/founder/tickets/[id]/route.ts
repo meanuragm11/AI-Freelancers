@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireFounder, supabaseAdmin, logAdminAction } from '@/lib/founder/server';
-import { normalizeAttachments } from '@/lib/support/server';
-import { SUPPORT_STATUSES, type SupportStatus } from '@/lib/support/constants';
+import { formatProfileDisplayName } from '@/lib/display/formatDisplayName';
+import {
+  FOUNDER_TICKET_STATUSES,
+  resolveFounderUserRole,
+} from '@/lib/support/founderConstants';
+import { founderTicketDetailPath, notifyFounderAdmins } from '@/lib/support/founderNotifications';
 import { isUuid } from '@/lib/founder/utils';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
+import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
+import { ticketDetailPath } from '@/lib/support/server';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -16,7 +22,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
     const { data: ticket, error: ticketError } = await supabaseAdmin
       .from('support_tickets')
-      .select('*')
+      .select(
+        'id, ticket_number, user_id, name, email, category, subject, status, priority, transaction_id, escrow_id, project_id, service_id, ai_asset_id, created_at, updated_at'
+      )
       .eq('id', id)
       .maybeSingle();
 
@@ -25,28 +33,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
-    const [{ data: messages, error: messagesError }, { data: user }, { data: notes }] = await Promise.all([
-      supabaseAdmin
-        .from('support_ticket_messages')
-        .select('*')
-        .eq('ticket_id', ticket.id)
-        .order('created_at', { ascending: true }),
-      supabaseAdmin
-        .from('profiles')
-        .select(
-          'id, full_name, role, is_freelancer, is_admin, is_verified, kyc_status, average_rating, review_count, created_at, last_active_at'
-        )
-        .eq('id', ticket.user_id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('admin_internal_notes')
-        .select('id, body, created_at, created_by, profiles:created_by(full_name)')
-        .eq('entity_type', 'support_ticket')
-        .eq('entity_id', ticket.id)
-        .order('created_at', { ascending: false }),
-    ]);
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('profiles')
+      .select(
+        'id, full_name, role, is_freelancer, is_verified, verified_buyer, location, created_at'
+      )
+      .eq('id', ticket.user_id)
+      .maybeSingle();
 
-    if (messagesError) throw messagesError;
+    if (userError) throw userError;
 
     const related: Record<string, unknown> = {};
 
@@ -95,15 +90,40 @@ export async function GET(_req: Request, { params }: RouteParams) {
       related.legacySolution = data ?? null;
     }
 
+    let dispute = null;
+    const collabId = ticket.escrow_id || ticket.project_id;
+    if (isUuid(collabId)) {
+      const { data } = await supabaseAdmin
+        .from('disputes')
+        .select('id, status, primary_reason, created_at')
+        .eq('collab_id', collabId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      dispute = data ?? null;
+    }
+
     return NextResponse.json({
-      ticket,
-      messages: (messages ?? []).map((message) => ({
-        ...message,
-        attachments: normalizeAttachments(message.attachments),
-      })),
-      user,
-      notes: notes ?? [],
-      related,
+      ticket: {
+        ...ticket,
+        display_name: formatProfileDisplayName(user, ticket.email),
+      },
+      user: user
+        ? {
+            id: user.id,
+            display_name: formatProfileDisplayName(user, ticket.email),
+            email: ticket.email,
+            role: resolveFounderUserRole(user),
+            country: user.location || null,
+            member_since: user.created_at,
+            is_verified_builder: Boolean(user.is_verified),
+            verified_buyer: Boolean(user.verified_buyer),
+          }
+        : null,
+      related: {
+        ...related,
+        dispute,
+      },
     });
   } catch (error: unknown) {
     console.error('Founder ticket detail error:', error);
@@ -122,7 +142,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('support_tickets')
-      .select('id, status, assigned_to')
+      .select('id, ticket_number, subject, user_id, email, status, priority')
       .eq('id', id)
       .maybeSingle();
 
@@ -134,14 +154,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const updates: Record<string, unknown> = {};
 
     if (body.status !== undefined) {
-      if (!SUPPORT_STATUSES.includes(body.status as SupportStatus)) {
+      if (!FOUNDER_TICKET_STATUSES.includes(body.status as (typeof FOUNDER_TICKET_STATUSES)[number])) {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
       }
       updates.status = body.status;
-    }
-
-    if (body.assignedTo !== undefined) {
-      updates.assigned_to = body.assignedTo || null;
     }
 
     if (body.priority !== undefined) {
@@ -156,28 +172,90 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       .from('support_tickets')
       .update(updates)
       .eq('id', id)
-      .select('*')
+      .select(
+        'id, ticket_number, user_id, name, email, category, subject, status, priority, transaction_id, escrow_id, project_id, service_id, ai_asset_id, created_at, updated_at'
+      )
       .single();
 
     if (updateError) throw updateError;
 
+    const statusChanged = updates.status !== undefined && updates.status !== existing.status;
+    const wasResolved =
+      existing.status === 'resolved' || existing.status === 'closed';
+    const isNowResolved = updates.status === 'resolved' || updates.status === 'closed';
+    const reopened = statusChanged && wasResolved && !isNowResolved;
+
     await logAdminAction({
       actor: auth.actor,
-      action: updates.status === 'resolved' ? 'support_ticket.resolve' : 'support_ticket.update',
+      action:
+        updates.status === 'resolved'
+          ? 'support_ticket.resolve'
+          : updates.status === 'closed'
+            ? 'support_ticket.close'
+            : reopened
+              ? 'support_ticket.reopen'
+              : 'support_ticket.update',
       targetType: 'support_ticket',
       targetId: id,
       previousValue: existing,
       newValue: updates,
     });
 
-    void logBusinessEvent({
-      eventType: updates.status === 'resolved' ? 'support_ticket.resolved' : 'support_ticket.updated',
-      entityType: 'support_ticket',
-      entityId: id,
-      actorId: auth.actor.id,
-      summary: `Support ticket ${updates.status === 'resolved' ? 'resolved' : 'updated'}`,
-      metadata: { updates },
-    });
+    if (statusChanged) {
+      const eventType = reopened
+        ? 'support_ticket.reopened'
+        : updates.status === 'resolved'
+          ? 'support_ticket.resolved'
+          : updates.status === 'closed'
+            ? 'support_ticket.closed'
+            : 'support_ticket.status_changed';
+
+      void logBusinessEvent({
+        eventType,
+        entityType: 'support_ticket',
+        entityId: id,
+        actorId: auth.actor.id,
+        summary: `Support ticket ${existing.ticket_number} → ${updates.status}`,
+        metadata: { previousStatus: existing.status, newStatus: updates.status },
+      });
+
+      void sendNotification({
+        type: NotificationType.SUPPORT_TICKET,
+        recipientId: existing.user_id,
+        recipientEmail: existing.email,
+        title:
+          updates.status === 'resolved'
+            ? `Ticket ${existing.ticket_number} resolved`
+            : `Ticket ${existing.ticket_number} status updated`,
+        message:
+          updates.status === 'resolved'
+            ? `Your support request "${existing.subject}" has been marked resolved.`
+            : `Your ticket ${existing.ticket_number} is now ${String(updates.status).replace(/_/g, ' ')}.`,
+        link: ticketDetailPath(existing.ticket_number),
+        metadata: {
+          ticketNumber: existing.ticket_number,
+          idempotencyKey: `support-ticket:${existing.id}:status:${updates.status}:${Date.now()}`,
+        },
+      }).catch((notifyError) => console.error('Failed to notify customer of status change:', notifyError));
+
+      if (reopened) {
+        void notifyFounderAdmins({
+          title: `Ticket reopened · ${existing.ticket_number}`,
+          message: `"${existing.subject}" was reopened.`,
+          link: founderTicketDetailPath(existing.id),
+          idempotencyKey: `support-ticket:${existing.id}:reopened`,
+        });
+      }
+    } else {
+      void logBusinessEvent({
+        eventType: 'support_ticket.updated',
+        entityType: 'support_ticket',
+        entityId: id,
+        actorId: auth.actor.id,
+        summary: `Support ticket ${existing.ticket_number} updated`,
+        metadata: { updates },
+      });
+    }
 
     return NextResponse.json({ ticket: updated });
   } catch (error: unknown) {

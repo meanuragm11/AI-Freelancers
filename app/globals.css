@@ -2,11 +2,40 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   background-color: #f8fafc; /* This is tailwind's slate-50 */
   color: #0f172a; /* This is tailwind's slate-900 */
+  overflow-x: hidden;
+}
+
+/* Shared modal panel — fits viewport with internal scroll on small screens */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background-color: rgb(15 23 42 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+@media (min-width: 768px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+}
+
+.modal-panel {
+  width: 100%;
+  max-height: min(96dvh, 100%);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes auth-fade-in {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getRazorpayClient } from '@/lib/payments/razorpayClient';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
+import { maybeCompleteDisputeFromRefund } from '@/lib/disputes/completePaymentExecution';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 
 export type RefundType = 'full' | 'partial' | 'milestone' | 'custom_settlement';
@@ -267,6 +268,10 @@ export async function decideRefundRequest({
           .from('transactions')
           .update({ status: 'refunded' })
           .eq('id', transaction.id);
+      }
+
+      if (finalStatus === 'completed') {
+        void maybeCompleteDisputeFromRefund(supabaseAdmin, refund, reviewerId);
       }
 
       void logBusinessEvent({

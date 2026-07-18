@@ -98,7 +98,7 @@ export default function ProjectProposalCard({
 
   if (loading) {
     return (
-      <div className="my-2 w-full min-w-[300px] max-w-xl rounded-2xl border border-slate-200 bg-white p-5 text-xs font-bold uppercase tracking-widest text-slate-400 animate-pulse">
+      <div className="my-2 w-full max-w-full sm:max-w-xl rounded-2xl border border-slate-200 bg-white p-5 text-xs font-bold uppercase tracking-widest text-slate-400 animate-pulse">
         Loading proposal...
       </div>
     );
@@ -141,7 +141,7 @@ export default function ProjectProposalCard({
 
   return (
     <div
-      className={`my-2 w-full min-w-[300px] max-w-xl overflow-hidden rounded-2xl border bg-white text-slate-900 shadow-sm ${
+      className={`my-2 w-full max-w-full sm:max-w-xl overflow-hidden rounded-2xl border bg-white text-slate-900 shadow-sm ${
         locked ? "border-emerald-200 opacity-95" : "border-slate-200"
       }`}
     >

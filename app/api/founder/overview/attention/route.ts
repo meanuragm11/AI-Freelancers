@@ -50,7 +50,7 @@ export async function GET(req: Request) {
           .limit(SOURCE_FETCH_LIMIT),
         supabaseAdmin
           .from('disputes')
-          .select('id, primary_reason, status, created_at')
+          .select('id, primary_reason, status, priority, created_at')
           .in('status', [...OPEN_DISPUTE_STATUSES])
           .order('created_at', { ascending: false })
           .limit(SOURCE_FETCH_LIMIT),
@@ -91,7 +91,7 @@ export async function GET(req: Request) {
     for (const dispute of disputesRes.data ?? []) {
       items.push({
         id: `dispute-${dispute.id}`,
-        priority: disputeAttentionPriority(dispute.status),
+        priority: disputeAttentionPriority(dispute.status, dispute.priority),
         type: 'dispute',
         title: dispute.primary_reason,
         created_at: dispute.created_at,

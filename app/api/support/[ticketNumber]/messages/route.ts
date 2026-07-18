@@ -6,6 +6,8 @@ import {
   ticketDetailPath,
   normalizeAttachments,
 } from '@/lib/support/server';
+import { founderTicketDetailPath, notifyFounderAdmins } from '@/lib/support/founderNotifications';
+import { logBusinessEvent } from '@/lib/events/businessEvents';
 
 type RouteParams = { params: Promise<{ ticketNumber: string }> };
 
@@ -61,6 +63,15 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     if (messageError) throw messageError;
 
+    void logBusinessEvent({
+      eventType: 'support_ticket.customer_replied',
+      entityType: 'support_ticket',
+      entityId: ticket.id,
+      actorId: user.id,
+      summary: `Customer replied on ${ticket.ticket_number}`,
+      metadata: { messageId: message.id },
+    });
+
     if (ticket.status === 'waiting_for_user') {
       await supabaseAdmin
         .from('support_tickets')
@@ -79,6 +90,13 @@ export async function POST(req: Request, { params }: RouteParams) {
         ticketNumber: ticket.ticket_number,
         idempotencyKey: `support-ticket:${ticket.id}:message:${message.id}`,
       },
+    });
+
+    void notifyFounderAdmins({
+      title: `Customer reply · ${ticket.ticket_number}`,
+      message: `"${ticket.subject}" has a new customer message.`,
+      link: founderTicketDetailPath(ticket.id),
+      idempotencyKey: `support-ticket:${ticket.id}:customer-reply:${message.id}`,
     });
 
     return NextResponse.json({

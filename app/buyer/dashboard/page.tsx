@@ -363,7 +363,7 @@ export default function BuyerDashboard() {
               ) : (
                 <div className="flex flex-col gap-5 md:flex-row md:overflow-x-auto md:pb-4 custom-scrollbar">
                   {myServices.map(service => (
-                    <div key={service.id} className="bg-white border border-slate-200 rounded-3xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all group overflow-hidden md:min-w-[380px] md:max-w-[420px]">
+                    <div key={service.id} className="w-full bg-white border border-slate-200 rounded-3xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all group overflow-hidden md:min-w-[380px] md:max-w-[420px] md:shrink-0">
                       <div className="relative h-40 bg-slate-100">
                         {service.serviceThumbnail ? (
                           <Image src={service.serviceThumbnail} fill sizes="(max-width: 768px) 100vw, 420px" className="object-cover" alt={service.serviceTitle} />

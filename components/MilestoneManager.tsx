@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import RazorpayCheckoutButton from '@/components/RazorpayCheckoutButton';
 import SubmitRevisionModal from '@/components/SubmitRevisionModal';
 import SubmissionFilePreview, { type SubmissionAttachment } from '@/components/SubmissionFilePreview';
+import { ACTIVE_DISPUTE_STATUSES } from '@/lib/disputes/constants';
 
 type DeliverableRow = {
     id: string;
@@ -110,7 +111,7 @@ export default function MilestoneManager({ collabId, userRole, onRaiseDispute, o
                 .from('disputes')
                 .select('status')
                 .eq('collab_id', collabId)
-                .in('status', ['waiting_for_freelancer', 'waiting_for_buyer', 'negotiation', 'under_review', 'arbitration_requested'])
+                .in('status', [...ACTIVE_DISPUTE_STATUSES])
                 .maybeSingle(),
             supabase
                 .from('deliverables')

@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireFounder, supabaseAdmin } from '@/lib/founder/server';
+import { requireFounder } from '@/lib/founder/server';
+import { listFounderDisputes } from '@/lib/disputes/listFounderDisputes';
+import {
+  DISPUTE_DECISION_TYPES,
+  DISPUTE_PRIORITIES,
+  FOUNDER_DISPUTE_STATUS_FILTERS,
+} from '@/lib/disputes/constants';
 
 export async function GET(req: Request) {
   const auth = await requireFounder();
@@ -8,24 +14,34 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const decision = searchParams.get('decision');
+    const q = searchParams.get('q')?.trim() || null;
+    const page = Math.max(Number(searchParams.get('page')) || 1, 1);
 
-    let query = supabaseAdmin
-      .from('disputes')
-      .select(
-        `id, collab_id, buyer_id, freelancer_id, status, primary_reason, escrow_frozen_at,
-         arbitration_requested_at, resolved_at, closed_at, created_at, updated_at,
-         buyer:buyer_id(id, full_name), freelancer:freelancer_id(id, full_name),
-         collab:collab_id(id, title, escrow_amount_usd, status)`
-      )
-      .order('created_at', { ascending: false })
-      .limit(200);
+    if (
+      status &&
+      !FOUNDER_DISPUTE_STATUS_FILTERS.includes(status as (typeof FOUNDER_DISPUTE_STATUS_FILTERS)[number])
+    ) {
+      return NextResponse.json({ error: 'Invalid status filter' }, { status: 400 });
+    }
+    if (priority && !DISPUTE_PRIORITIES.includes(priority as (typeof DISPUTE_PRIORITIES)[number])) {
+      return NextResponse.json({ error: 'Invalid priority filter' }, { status: 400 });
+    }
+    if (decision && !DISPUTE_DECISION_TYPES.includes(decision as (typeof DISPUTE_DECISION_TYPES)[number])) {
+      return NextResponse.json({ error: 'Invalid decision filter' }, { status: 400 });
+    }
 
-    if (status) query = query.eq('status', status);
+    const result = await listFounderDisputes({
+      status,
+      priority,
+      decision,
+      q,
+      page,
+      pageSize: 20,
+    });
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return NextResponse.json({ disputes: data ?? [] });
+    return NextResponse.json(result);
   } catch (error: unknown) {
     console.error('Founder disputes list error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

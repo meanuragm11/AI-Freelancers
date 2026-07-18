@@ -1,9 +1,8 @@
 export const OPEN_DISPUTE_STATUSES = [
-  'waiting_for_freelancer',
-  'waiting_for_buyer',
-  'negotiation',
-  'under_review',
-  'arbitration_requested',
+  'open',
+  'under_investigation',
+  'decision_recorded',
+  'waiting_for_payment_execution',
 ] as const;
 
 export const OPEN_TICKET_STATUSES = [
@@ -35,10 +34,11 @@ export function ticketAttentionPriority(status: string, priority: string): Atten
   return 'low';
 }
 
-export function disputeAttentionPriority(status: string): AttentionPriority {
-  if (status === 'arbitration_requested') return 'critical';
-  if (status === 'under_review') return 'high';
-  if (status === 'negotiation' || status.startsWith('waiting_for')) return 'medium';
+export function disputeAttentionPriority(status: string, priority?: string): AttentionPriority {
+  if (priority === 'critical') return 'critical';
+  if (status === 'waiting_for_payment_execution') return 'high';
+  if (status === 'under_investigation' || priority === 'high') return 'high';
+  if (status === 'open') return 'medium';
   return 'low';
 }
 

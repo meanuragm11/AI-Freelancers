@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { ACTIVE_DISPUTE_STATUSES } from '@/lib/disputes/constants';
 
 // Admin client required to bypass Row Level Security for financial ledgers
 const supabaseAdmin = createClient(
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
       .from('disputes')
       .select('id')
       .eq('collab_id', collabId)
-      .in('status', ['waiting_for_freelancer', 'waiting_for_buyer', 'negotiation', 'under_review', 'arbitration_requested'])
+      .in('status', [...ACTIVE_DISPUTE_STATUSES])
       .maybeSingle();
 
     if (disputeError) throw disputeError;

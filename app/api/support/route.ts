@@ -12,6 +12,8 @@ import {
   ticketDetailPath,
   normalizeAttachments,
 } from '@/lib/support/server';
+import { founderTicketDetailPath, notifyFounderAdmins } from '@/lib/support/founderNotifications';
+import { logBusinessEvent } from '@/lib/events/businessEvents';
 
 export async function GET() {
   try {
@@ -112,6 +114,15 @@ export async function POST(req: Request) {
 
     if (messageError) throw messageError;
 
+    void logBusinessEvent({
+      eventType: 'support_ticket.created',
+      entityType: 'support_ticket',
+      entityId: ticket.id,
+      actorId: user.id,
+      summary: `Support ticket ${ticket.ticket_number} created`,
+      metadata: { category, priority, subject: subject.trim() },
+    });
+
     const ticketLink = ticketDetailPath(ticket.ticket_number);
 
     await sendNotification({
@@ -127,6 +138,13 @@ export async function POST(req: Request) {
         priority,
         idempotencyKey: `support-ticket:${ticket.id}:created`,
       },
+    });
+
+    void notifyFounderAdmins({
+      title: `New support ticket · ${ticket.ticket_number}`,
+      message: `"${subject.trim()}" (${category})`,
+      link: founderTicketDetailPath(ticket.id),
+      idempotencyKey: `support-ticket:${ticket.id}:new`,
     });
 
     return NextResponse.json({

@@ -13,19 +13,12 @@ import {
   fetchRazorpayOrder,
   validateRazorpayOrderForReuse,
 } from '@/lib/payments/razorpayOrderValidation';
+import { ACTIVE_DISPUTE_STATUSES } from '@/lib/disputes/constants';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const ACTIVE_DISPUTE_STATUSES = [
-  'waiting_for_freelancer',
-  'waiting_for_buyer',
-  'negotiation',
-  'under_review',
-  'arbitration_requested',
-];
 
 type OrderPayload = {
   transactionType?: string;

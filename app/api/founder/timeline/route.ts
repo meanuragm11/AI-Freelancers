@@ -16,11 +16,12 @@ export async function GET(req: Request) {
     const entityId = searchParams.get('entityId');
     const collabId = searchParams.get('collabId');
     const limit = Math.min(Number(searchParams.get('limit')) || 100, 500);
+    const ascending = searchParams.get('order') === 'asc';
 
     let query = supabaseAdmin
       .from('business_events')
       .select('*, actor:actor_id(id, full_name)')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending })
       .limit(limit);
 
     if (entityType && entityId) {

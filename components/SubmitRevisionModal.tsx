@@ -83,8 +83,8 @@ export default function SubmitRevisionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="modal-overlay">
+      <div className="modal-panel bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-lg">
         <div className="p-6 border-b border-slate-200">
           <h3 className="text-lg font-black text-slate-900">
             {isResubmission ? 'Submit Revision' : 'Submit for Review'}

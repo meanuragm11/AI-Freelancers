@@ -1,10 +1,4 @@
-export const ACTIVE_DISPUTE_STATUSES = [
-  'waiting_for_freelancer',
-  'waiting_for_buyer',
-  'negotiation',
-  'under_review',
-  'arbitration_requested',
-] as const;
+export { ACTIVE_DISPUTE_STATUSES, isActiveDisputeStatus } from '@/lib/disputes/constants';
 
 export const ACTIVE_COLLAB_STATUSES = [
   'funded',
@@ -34,6 +28,3 @@ export function mapProjectStatus(status?: string | null): ProjectStatusLabel {
   return 'Pending';
 }
 
-export function isActiveDisputeStatus(status?: string | null) {
-  return (ACTIVE_DISPUTE_STATUSES as readonly string[]).includes((status || '').toLowerCase());
-}

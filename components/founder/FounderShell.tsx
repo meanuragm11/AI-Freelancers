@@ -125,7 +125,7 @@ function FounderShellInner({ actorName, actorEmail, children }: FounderShellProp
     href === '/founder' ? pathname === '/founder' : pathname.startsWith(href);
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-slate-100 flex">
+    <div className="min-h-[calc(100vh-80px)] bg-slate-100 flex min-w-0 overflow-x-hidden">
       <aside
         className={`fixed md:sticky top-0 md:top-20 z-40 h-screen md:h-[calc(100vh-80px)] w-72 shrink-0 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
@@ -186,7 +186,7 @@ function FounderShellInner({ actorName, actorEmail, children }: FounderShellProp
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100"
+              className="md:hidden min-h-11 min-w-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
               aria-label="Open navigation"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -204,7 +204,7 @@ function FounderShellInner({ actorName, actorEmail, children }: FounderShellProp
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => urlQuery && setSearchOpen(true)}
                   placeholder="Search users, projects, tickets, disputes, escrows, payments…"
-                  className="w-full bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-slate-900 outline-none"
+                  className="w-full bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 min-h-[44px] text-sm font-medium text-slate-900 outline-none"
                 />
               </div>
 
@@ -251,7 +251,7 @@ function FounderShellInner({ actorName, actorEmail, children }: FounderShellProp
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 max-w-[1600px] w-full mx-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-8 max-w-[1600px] w-full mx-auto min-w-0 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

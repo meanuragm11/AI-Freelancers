@@ -109,6 +109,17 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/');
@@ -154,26 +165,26 @@ export default function Navbar() {
 
   const mobilePrimaryNavLinks = (
     <>
-      <Link href="/" className="block text-lg font-black text-slate-900">Home</Link>
+      <Link href="/" onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Home</Link>
       {showDiscoverExperts && (
-        <Link href="/buyer/discover" className="block text-lg font-black text-slate-900">Discover Experts</Link>
+        <Link href="/buyer/discover" onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Discover Experts</Link>
       )}
-      <Link href="/projects" className="block text-lg font-black text-slate-900">Open Projects</Link>
+      <Link href="/projects" onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Open Projects</Link>
       {currentUser && (
-        <Link href="/projects/new" className="block text-lg font-black text-slate-900">Post Project</Link>
+        <Link href="/projects/new" onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Post Project</Link>
       )}
       {currentUser && (
-        <Link href={workspaceHref} className="block text-lg font-black text-slate-900">Workspace</Link>
+        <Link href={workspaceHref} onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Workspace</Link>
       )}
       {showBecomeExpert && (
-        <Link href="/builder/dashboard" className="block text-lg font-black text-slate-900">Become an AI Expert</Link>
+        <Link href="/builder/dashboard" onClick={closeMobileMenu} className="block py-2 text-lg font-black text-slate-900 min-h-[44px] flex items-center">Become an AI Expert</Link>
       )}
     </>
   );
 
   return (
     <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between min-w-0">
 
         <Link href="/" aria-label="Zelance Homepage" className="flex items-center gap-2 shrink-0">
           <Image src="/logo.svg" alt="Zelance Logo" width={140} height={40} priority className="h-8 w-auto object-contain" />
@@ -198,7 +209,7 @@ export default function Navbar() {
                 aria-expanded={mobileMenuOpen}
                 aria-label="Toggle Mobile Menu"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden text-slate-900 p-2"
+                className="md:hidden text-slate-900 min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
               >
                 {mobileMenuOpen ? (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -303,7 +314,7 @@ export default function Navbar() {
                 aria-expanded={mobileMenuOpen}
                 aria-label="Toggle Mobile Menu"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden text-slate-900 p-2"
+                className="md:hidden text-slate-900 min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
               >
                 {mobileMenuOpen ? (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -317,8 +328,8 @@ export default function Navbar() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-slate-200 absolute w-full h-[calc(100vh-80px)] overflow-y-auto z-40 pb-20 shadow-xl">
-          <div className="p-6 space-y-6">
+        <div className="md:hidden bg-white border-t border-slate-200 absolute w-full left-0 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] overflow-y-auto z-40 pb-20 shadow-xl animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="p-4 sm:p-6 space-y-6">
             <div className="space-y-4">
               {mobilePrimaryNavLinks}
             </div>
@@ -326,8 +337,8 @@ export default function Navbar() {
 
             {!currentUser ? (
               <div className="flex flex-col gap-3">
-                <Link href="/auth" className="bg-slate-100 text-slate-900 px-6 py-4 rounded-xl text-sm font-black uppercase tracking-widest text-center">Log In</Link>
-                <Link href="/auth" className="bg-[#111827] text-white px-6 py-4 rounded-xl text-sm font-black uppercase tracking-widest text-center shadow-md">Sign Up</Link>
+                <Link href="/auth" onClick={closeMobileMenu} className="bg-slate-100 text-slate-900 px-6 py-4 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest text-center flex items-center justify-center">Log In</Link>
+                <Link href="/auth" onClick={closeMobileMenu} className="bg-[#111827] text-white px-6 py-4 min-h-[44px] rounded-xl text-sm font-black uppercase tracking-widest text-center shadow-md flex items-center justify-center">Sign Up</Link>
               </div>
             ) : (
               <div className="space-y-6">
@@ -346,16 +357,16 @@ export default function Navbar() {
                 </div>
 
                 <div className="space-y-1">
-                  <Link href="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">👤 My Profile</Link>
-                  <Link href={workspaceHref} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💼 Workspace</Link>
+                  <Link href="/profile/me" onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">👤 My Profile</Link>
+                  <Link href={workspaceHref} onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💼 Workspace</Link>
                   {showBecomeExpert && (
-                    <Link href="/builder/dashboard" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">✨ Become an AI Expert</Link>
+                    <Link href="/builder/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">✨ Become an AI Expert</Link>
                   )}
-                  <Link href="/buyer/saved" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🔖 Saved Experts</Link>
-                  <Link href={isBuilderAccount ? '/builder/wallet' : '/buyer/billing'} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💳 Payments</Link>
-                  <Link href="/support" className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🎫 Support</Link>
-                  <Link href={isBuilderAccount ? '/builder/settings' : '/buyer/settings'} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">⚙️ Settings</Link>
-                  <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">🚪 Log Out</button>
+                  <Link href="/buyer/saved" onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🔖 Saved Experts</Link>
+                  <Link href={isBuilderAccount ? '/builder/wallet' : '/buyer/billing'} onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">💳 Payments</Link>
+                  <Link href="/support" onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">🎫 Support</Link>
+                  <Link href={isBuilderAccount ? '/builder/settings' : '/buyer/settings'} onClick={closeMobileMenu} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">⚙️ Settings</Link>
+                  <button onClick={() => { closeMobileMenu(); void handleLogout(); }} className="flex w-full items-center gap-3 px-4 py-3 min-h-[44px] text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">🚪 Log Out</button>
                 </div>
               </div>
             )}

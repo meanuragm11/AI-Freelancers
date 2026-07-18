@@ -6,6 +6,7 @@ import {
 } from '@/lib/milestones/platformFees';
 import { postMilestoneChatMessage } from '@/lib/milestones/chatMessages';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
+import { ACTIVE_DISPUTE_STATUSES } from '@/lib/disputes/constants';
 
 type FulfillParams = {
   checkoutType: 'escrow' | 'asset' | 'solution' | 'revision';
@@ -83,7 +84,7 @@ export async function fulfillRazorpayPayment(
       .from('disputes')
       .select('id')
       .eq('collab_id', milestone.collab_id)
-      .in('status', ['waiting_for_freelancer', 'waiting_for_buyer', 'negotiation', 'under_review', 'arbitration_requested'])
+      .in('status', [...ACTIVE_DISPUTE_STATUSES])
       .maybeSingle();
 
     if (disputeError) throw disputeError;

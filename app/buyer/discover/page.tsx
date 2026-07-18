@@ -321,15 +321,15 @@ function DiscoverContent() {
         </div>
       </div>
 
-      <div className="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-        <div className={`${SOLUTION_CARD_SECTION_CLASS} flex items-center justify-between`}>
-          <div className="flex gap-8">
+      <div className="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-16 sm:top-20 z-40 shadow-sm">
+        <div className={`${SOLUTION_CARD_SECTION_CLASS} flex items-center justify-between min-h-[44px]`}>
+          <div className="flex gap-4 sm:gap-8 overflow-x-auto">
             <span className="py-4 text-xs md:text-sm font-black uppercase tracking-widest text-blue-600 relative">
               AI Solutions
               <span className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full"></span>
             </span>
           </div>
-          <button onClick={() => setShowMobileFilters(!showMobileFilters)} className="md:hidden flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-600">
+          <button onClick={() => setShowMobileFilters(!showMobileFilters)} className="md:hidden flex items-center gap-2 min-h-[44px] px-2 text-xs font-black uppercase tracking-widest text-slate-600 shrink-0">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg> Filters
           </button>
         </div>
@@ -338,7 +338,7 @@ function DiscoverContent() {
       <div className={`${SOLUTION_CARD_SECTION_CLASS} py-8`}>
         <div className="flex flex-col md:flex-row gap-8 mb-6">
           <aside className={`w-full md:w-64 shrink-0 ${showMobileFilters ? 'block' : 'hidden md:block'}`}>
-            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm sticky top-20">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm md:sticky md:top-24">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Filters</h3>
                 <button onClick={clearFilters} className="text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-500">Clear</button>

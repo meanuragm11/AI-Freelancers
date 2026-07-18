@@ -14,9 +14,10 @@ type Note = {
 type InternalNotesPanelProps = {
   entityType: InternalNoteEntityType;
   entityId: string;
+  order?: 'asc' | 'desc';
 };
 
-export default function InternalNotesPanel({ entityType, entityId }: InternalNotesPanelProps) {
+export default function InternalNotesPanel({ entityType, entityId, order = 'desc' }: InternalNotesPanelProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -30,7 +31,12 @@ export default function InternalNotesPanel({ entityType, entityId }: InternalNot
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load notes');
-      setNotes(data.notes ?? []);
+      const loaded = (data.notes ?? []) as Note[];
+      setNotes(
+        order === 'asc'
+          ? [...loaded].reverse()
+          : loaded
+      );
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load notes');
     } finally {
@@ -56,7 +62,7 @@ export default function InternalNotesPanel({ entityType, entityId }: InternalNot
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to add note');
-      setNotes((prev) => [data.note, ...prev]);
+      setNotes((prev) => (order === 'asc' ? [...prev, data.note] : [data.note, ...prev]));
       setDraft('');
     } catch (addError: unknown) {
       setError(addError instanceof Error ? addError.message : 'Failed to add note');
@@ -105,7 +111,7 @@ export default function InternalNotesPanel({ entityType, entityId }: InternalNot
             <div key={note.id} className="bg-white border border-amber-100 rounded-xl p-3">
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.body}</p>
               <p className="text-[10px] font-black uppercase tracking-widest text-amber-600/70 mt-2">
-                {note.author?.full_name || 'Admin'} · {new Date(note.created_at).toLocaleString()}
+                {new Date(note.created_at).toLocaleString()} · {note.author?.full_name || 'Admin'}
               </p>
             </div>
           ))}

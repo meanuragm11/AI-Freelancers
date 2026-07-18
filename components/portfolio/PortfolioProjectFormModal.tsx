@@ -112,8 +112,8 @@ export default function PortfolioProjectFormModal({
   };
 
   return (
-    <div className={`fixed inset-0 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm ${overlayClassName}`}>
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div className={`fixed inset-0 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-sm md:items-center md:p-4 ${overlayClassName}`}>
+      <div className="modal-panel flex max-h-[96dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl md:rounded-3xl bg-white shadow-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 p-6">
           <h3 className="text-lg font-black text-slate-900">
             {editingProject ? "Edit Portfolio Project" : "Add Portfolio Project"}

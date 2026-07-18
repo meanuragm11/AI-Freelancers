@@ -15,6 +15,7 @@ import {
   getDisplayNameInitials,
   resolveDisplayName,
 } from '@/lib/display/formatDisplayName';
+import { isActiveDisputeStatus } from '@/lib/disputes/constants';
 
 type WorkspaceTab = 'overview' | 'milestones' | 'files' | 'disputes' | 'refunds';
 
@@ -105,12 +106,7 @@ export default function GlobalCollabWorkspace() {
       const disputeRes = await fetch(`/api/disputes?collabId=${encodeURIComponent(collabId)}`);
       const disputeData = await disputeRes.json().catch(() => ({}));
       if (disputeRes.ok) {
-        const active = Boolean(
-          disputeData.dispute &&
-            ['waiting_for_freelancer', 'waiting_for_buyer', 'negotiation', 'under_review', 'arbitration_requested'].includes(
-              disputeData.dispute.status
-            )
-        );
+        const active = Boolean(disputeData.dispute && isActiveDisputeStatus(disputeData.dispute.status));
         setHasActiveDispute(active);
       }
     }

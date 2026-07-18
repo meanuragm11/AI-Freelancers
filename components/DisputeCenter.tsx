@@ -54,23 +54,10 @@ interface DisputeCenterProps {
   onDisputeOpened?: () => void;
 }
 
-const ACTIVE_STATUSES = new Set([
-  'waiting_for_freelancer',
-  'waiting_for_buyer',
-  'negotiation',
-  'under_review',
-  'arbitration_requested',
-]);
-
-const STATUS_LABELS: Record<string, string> = {
-  waiting_for_freelancer: 'Waiting for Freelancer',
-  waiting_for_buyer: 'Waiting for Buyer',
-  negotiation: 'Negotiation',
-  under_review: 'Under Review',
-  arbitration_requested: 'Arbitration Requested',
-  resolved: 'Resolved',
-  closed: 'Closed',
-};
+import {
+  DISPUTE_STATUS_LABELS,
+  isActiveDisputeStatus,
+} from '@/lib/disputes/constants';
 
 const DISPUTE_REASONS = [
   ['quality', 'Deliverable does not meet technical requirements'],
@@ -83,7 +70,7 @@ const DISPUTE_REASONS = [
 
 function formatStatus(status?: string) {
   if (!status) return 'No Active Dispute';
-  return STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+  return DISPUTE_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
 }
 
 function formatFileSize(size?: number) {
@@ -161,7 +148,7 @@ export default function DisputeCenter({
 
       setDispute(data.dispute);
       setTimeline(data.timeline || []);
-      onDisputeChanged?.(Boolean(data.dispute && ACTIVE_STATUSES.has(data.dispute.status)));
+      onDisputeChanged?.(Boolean(data.dispute && isActiveDisputeStatus(data.dispute.status)));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load dispute state');
     } finally {
@@ -236,11 +223,11 @@ export default function DisputeCenter({
     }
   }
 
-  const hasActiveDispute = Boolean(dispute && ACTIVE_STATUSES.has(dispute.status));
+  const hasActiveDispute = Boolean(dispute && isActiveDisputeStatus(dispute.status));
   const isBuyer = userRole === 'buyer';
   const isBuilder = userRole === 'builder';
-  const canRespond = isBuilder && dispute?.status === 'waiting_for_freelancer' && !dispute.freelancer_response;
-  const canNegotiate = Boolean(dispute && ACTIVE_STATUSES.has(dispute.status));
+  const canRespond = isBuilder && dispute?.status === 'open' && !dispute.freelancer_response;
+  const canNegotiate = Boolean(dispute && isActiveDisputeStatus(dispute.status) && dispute.status !== 'waiting_for_payment_execution');
 
   const shellClass =
     variant === 'embedded'

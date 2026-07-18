@@ -163,7 +163,7 @@ const MessageContent = ({
                     return (
                         <div key={idx} className={idx > 0 ? 'border-t border-slate-200/20' : ''}>
                             {isImage ? (
-                                <div className="relative w-full min-w-[240px] aspect-video group cursor-zoom-in">
+                                <div className="relative w-full max-w-full sm:min-w-[240px] aspect-video group cursor-zoom-in">
                                     <Image src={file.url} fill sizes="(max-width: 640px) 100vw, 320px" className="object-cover" alt={file.name} />
                                     <a href={file.url} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest">
                                         View Full Size
@@ -209,7 +209,7 @@ const MessageContent = ({
             }
         };
         return (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm my-2 text-slate-900 w-full min-w-[280px]">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm my-2 text-slate-900 w-full max-w-full">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quotation</p>
                 <p className="text-2xl font-black text-blue-600 mt-1">${price}</p>
                 <p className="text-sm text-slate-600 mt-1">{days} days · {revisions} revisions</p>
@@ -229,7 +229,7 @@ const MessageContent = ({
     if (milestoneMatch) {
         const [_, title, amount] = milestoneMatch;
         return (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm my-2 text-slate-900 w-full min-w-[280px]">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm my-2 text-slate-900 w-full max-w-full">
                 <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -840,7 +840,7 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
     if (loading) return <div className="h-[70vh] flex items-center justify-center animate-pulse"><p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading Secure Workspace...</p></div>;
 
     return (
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm h-[75vh] min-h-[600px] flex overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-none md:rounded-3xl shadow-sm h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-14rem)] md:h-[75vh] min-h-0 md:min-h-[600px] flex overflow-hidden relative">
             
             {/* LEFT SIDEBAR */}
             <div className={`w-full md:w-1/3 md:min-w-[320px] border-r border-slate-200 bg-slate-50 flex flex-col ${mobileView === 'list' ? 'flex' : 'hidden md:flex'}`}>
@@ -912,9 +912,11 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
                     {activeCollabId ? (
                         <>
                             {/* Chat Header */}
-                            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white z-10 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <button onClick={() => setMobileView('list')} className="md:hidden text-slate-400 p-2">←</button>
+                            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex justify-between items-center gap-2 bg-white z-10 shadow-sm min-w-0">
+                                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                                    <button onClick={() => setMobileView('list')} className="md:hidden text-slate-500 min-h-11 min-w-11 flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0" aria-label="Back to conversations">
+                                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                    </button>
                                     <div className="w-10 h-10 rounded-full overflow-hidden relative border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center">
                                         {activeConversation?.counterparty?.avatar_url ? (
                                           <Image src={activeConversation.counterparty.avatar_url} fill sizes="40px" className="object-cover" alt="Avatar" />
@@ -935,11 +937,11 @@ export default function MessagingInterface({ currentUser, userRole, initialConve
                                         )}
                                     </div>
                                 </div>
-                                <button onClick={() => window.location.href = `/collab/${activeCollabId}`} className="text-[10px] font-black uppercase tracking-widest bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-lg transition-colors">Workspace</button>
+                                <button onClick={() => window.location.href = `/collab/${activeCollabId}`} className="text-[10px] font-black uppercase tracking-widest bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 sm:px-4 py-2.5 min-h-[44px] rounded-lg transition-colors shrink-0 whitespace-nowrap">Workspace</button>
                             </div>
 
                             {/* Chat History */}
-                            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 bg-slate-50/50 custom-scrollbar flex flex-col">
+                            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 custom-scrollbar flex flex-col min-w-0">
                                 <div className="text-center pb-6">
                                     <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-200 shadow-inner flex items-center justify-center gap-1.5 w-max mx-auto">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> Secure Escrow Chat

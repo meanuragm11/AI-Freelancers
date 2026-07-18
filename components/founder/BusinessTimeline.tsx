@@ -16,10 +16,11 @@ type BusinessEvent = {
 };
 
 type Props =
-  | { entityType: string; entityId: string; collabId?: never }
-  | { collabId: string; entityType?: never; entityId?: never };
+  | { entityType: string; entityId: string; collabId?: never; order?: 'asc' | 'desc' }
+  | { collabId: string; entityType?: never; entityId?: never; order?: 'asc' | 'desc' };
 
 export default function BusinessTimeline(props: Props) {
+  const order = props.order ?? 'desc';
   const [events, setEvents] = useState<BusinessEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function BusinessTimeline(props: Props) {
     } else if ('collabId' in props && props.collabId) {
       params.set('collabId', props.collabId);
     }
+    if (order === 'asc') params.set('order', 'asc');
 
     setLoading(true);
     fetch(`/api/founder/timeline?${params.toString()}`)
@@ -43,7 +45,7 @@ export default function BusinessTimeline(props: Props) {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load timeline'))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [('entityType' in props ? props.entityType : ''), ('entityId' in props ? props.entityId : ''), ('collabId' in props ? props.collabId : '')]);
+  }, [('entityType' in props ? props.entityType : ''), ('entityId' in props ? props.entityId : ''), ('collabId' in props ? props.collabId : ''), order]);
 
   if (loading) {
     return <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading timeline...</p>;

@@ -7,7 +7,12 @@ import Badge from '@/components/founder/Badge';
 import InternalNotesPanel from '@/components/founder/InternalNotesPanel';
 import TicketConversationAdmin from '@/components/founder/TicketConversationAdmin';
 import BusinessTimeline from '@/components/founder/BusinessTimeline';
-import { SUPPORT_STATUSES } from '@/lib/support/constants';
+import {
+  FOUNDER_TICKET_STATUSES,
+  founderPriorityLabel,
+  founderStatusLabel,
+} from '@/lib/support/founderConstants';
+import type { SupportAttachment } from '@/lib/support/types';
 
 const STATUS_TONE: Record<string, 'blue' | 'amber' | 'purple' | 'green' | 'slate' | 'rose'> = {
   open: 'blue',
@@ -18,20 +23,23 @@ const STATUS_TONE: Record<string, 'blue' | 'amber' | 'purple' | 'green' | 'slate
   closed: 'slate',
 };
 
-const isResolvedStatus = (status: string) => status === 'resolved' || status === 'closed';
+const PRIORITY_TONE: Record<string, 'slate' | 'amber' | 'rose'> = {
+  low: 'slate',
+  medium: 'amber',
+  high: 'rose',
+  critical: 'rose',
+};
 
 type Ticket = {
   id: string;
   ticket_number: string;
   user_id: string;
-  name: string;
+  display_name: string;
   email: string;
   category: string;
   subject: string;
-  message: string;
   status: string;
   priority: string;
-  assigned_to: string | null;
   transaction_id: string | null;
   escrow_id: string | null;
   project_id: string | null;
@@ -43,19 +51,50 @@ type Ticket = {
 
 type UserProfile = {
   id: string;
-  full_name: string | null;
-  role: string | null;
-  is_freelancer: boolean;
-  is_admin: boolean;
-  is_verified: boolean;
-  kyc_status: string | null;
-  average_rating: number | null;
-  review_count: number | null;
-  created_at: string;
-  last_active_at: string | null;
+  display_name: string;
+  email: string;
+  role: 'Buyer' | 'Builder' | 'Both';
+  country: string | null;
+  member_since: string;
+  is_verified_builder: boolean;
+  verified_buyer: boolean;
 };
 
-type Admin = { id: string; full_name: string | null };
+type AttachmentRow = SupportAttachment & {
+  source: 'ticket' | 'message';
+  uploaded_at: string;
+  message_id?: string;
+};
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatFileSize(size?: number) {
+  if (!size) return '—';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isPreviewable(type: string) {
+  return type.startsWith('image/') || type === 'application/pdf';
+}
 
 export default function FounderTicketDetailPage() {
   const params = useParams<{ id: string }>();
@@ -64,10 +103,10 @@ export default function FounderTicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [related, setRelated] = useState<Record<string, any>>({});
-  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -76,7 +115,6 @@ export default function FounderTicketDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load ticket');
       setTicket(data.ticket);
-      setMessages(data.messages ?? []);
       setUser(data.user ?? null);
       setRelated(data.related ?? {});
     } catch (loadError: unknown) {
@@ -86,18 +124,30 @@ export default function FounderTicketDetailPage() {
     }
   };
 
+  const loadAttachments = async () => {
+    setAttachmentsLoading(true);
+    try {
+      const res = await fetch(`/api/founder/tickets/${ticketId}/attachments`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load attachments');
+      setAttachments(data.attachments ?? []);
+    } catch {
+      setAttachments([]);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  };
+
   useEffect(() => {
     void load();
-    fetch('/api/founder/admins')
-      .then((res) => res.json())
-      .then((data) => setAdmins(data.admins ?? []))
-      .catch(() => {});
+    void loadAttachments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId]);
 
   const updateTicket = async (updates: Record<string, unknown>) => {
     if (!ticket) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`/api/founder/tickets/${ticketId}`, {
         method: 'PATCH',
@@ -106,7 +156,7 @@ export default function FounderTicketDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update ticket');
-      setTicket(data.ticket);
+      setTicket((prev) => (prev ? { ...prev, ...data.ticket } : data.ticket));
     } catch (updateError: unknown) {
       setError(updateError instanceof Error ? updateError.message : 'Failed to update ticket');
     } finally {
@@ -122,51 +172,85 @@ export default function FounderTicketDetailPage() {
     );
   }
 
-  if (error || !ticket) {
+  if (error && !ticket) {
     return (
       <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-sm font-medium text-rose-700">
-        {error || 'Ticket not found'}
+        {error}
       </div>
     );
   }
 
-  const relatedRows: Array<[string, string, string]> = [
-    ...(related.transaction
-      ? [[
-          'Transaction',
-          `${related.transaction.order_id || related.transaction.id} · $${Number(related.transaction.amount_usd).toFixed(2)} · ${related.transaction.status}`,
-          `/founder/payments?q=${related.transaction.id}`,
-        ] as [string, string, string]]
-      : []),
-    ...(related.escrow
-      ? [[
-          'Escrow / Project',
-          `${related.escrow.title} · ${related.escrow.status}`,
-          `/founder/payments?q=${related.escrow.id}`,
-        ] as [string, string, string]]
-      : []),
-    ...(related.project
-      ? [[
-          'Project',
-          `${related.project.title} · ${related.project.status}`,
-          `/founder/payments?q=${related.project.id}`,
-        ] as [string, string, string]]
-      : []),
-    ...(related.service
-      ? [[
-          'AI Solution',
-          `${related.service.title} · ${related.service.status}`,
-          `/founder?q=${related.service.id}`,
-        ] as [string, string, string]]
-      : []),
-    ...(related.legacySolution
-      ? [[
-          'Legacy listing',
-          `${related.legacySolution.title} · ${related.legacySolution.status}`,
-          `/founder?q=${related.legacySolution.id}`,
-        ] as [string, string, string]]
-      : []),
-  ];
+  if (!ticket) {
+    return (
+      <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-sm font-medium text-rose-700">
+        Ticket not found
+      </div>
+    );
+  }
+
+  const relatedLinks: Array<{ label: string; value: string; href: string }> = [];
+
+  if (related.transaction) {
+    relatedLinks.push({
+      label: 'Transaction',
+      value: `${related.transaction.order_id || related.transaction.id} · $${Number(related.transaction.amount_usd).toFixed(2)} · ${related.transaction.status}`,
+      href: `/founder/payments?q=${related.transaction.id}`,
+    });
+  }
+  if (related.escrow) {
+    relatedLinks.push({
+      label: 'Escrow',
+      value: `${related.escrow.title} · ${related.escrow.status}`,
+      href: `/founder/payments?tab=escrow&q=${related.escrow.id}`,
+    });
+  }
+  if (related.project) {
+    relatedLinks.push({
+      label: 'Project',
+      value: `${related.project.title} · ${related.project.status}`,
+      href: `/founder/projects?q=${related.project.id}`,
+    });
+  }
+  if (related.dispute) {
+    relatedLinks.push({
+      label: 'Dispute',
+      value: `${related.dispute.primary_reason} · ${related.dispute.status}`,
+      href: `/founder/disputes/${related.dispute.id}`,
+    });
+  }
+  if (related.service) {
+    relatedLinks.push({
+      label: 'AI Solution',
+      value: `${related.service.title} · ${related.service.status}`,
+      href: `/founder/search?q=${related.service.id}`,
+    });
+  }
+  if (related.legacySolution) {
+    relatedLinks.push({
+      label: 'Legacy Listing',
+      value: `${related.legacySolution.title} · ${related.legacySolution.status}`,
+      href: `/founder/search?q=${related.legacySolution.id}`,
+    });
+  }
+
+  const quickActionLinks: Array<{ label: string; href: string; hidden?: boolean }> = [
+    { label: 'View User Profile', href: `/founder/users/${ticket.user_id}` },
+    {
+      label: 'Open Payment',
+      href: `/founder/payments?q=${related.transaction?.id || ticket.transaction_id || ''}`,
+      hidden: !related.transaction && !ticket.transaction_id,
+    },
+    {
+      label: 'Open Escrow',
+      href: `/founder/payments?tab=escrow&q=${related.escrow?.id || ticket.escrow_id || ''}`,
+      hidden: !related.escrow && !ticket.escrow_id,
+    },
+    {
+      label: 'Open Dispute',
+      href: `/founder/disputes/${related.dispute?.id || ''}`,
+      hidden: !related.dispute,
+    },
+  ].filter((action) => !action.hidden);
 
   return (
     <div className="space-y-6">
@@ -174,34 +258,41 @@ export default function FounderTicketDetailPage() {
         ← Back to Tickets
       </Link>
 
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm font-medium text-rose-700">{error}</div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-sm font-black font-mono text-slate-500">{ticket.ticket_number}</span>
-              <Badge label={ticket.status} tone={STATUS_TONE[ticket.status] || 'slate'} />
-              <Badge label={`${ticket.priority} priority`} tone="amber" />
+              <Badge label={founderPriorityLabel(ticket.priority)} tone={PRIORITY_TONE[ticket.priority] || 'slate'} />
+              <Badge label={founderStatusLabel(ticket.status)} tone={STATUS_TONE[ticket.status] || 'slate'} />
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">{ticket.subject}</h1>
             <p className="text-sm text-slate-500 mt-2">{ticket.category}</p>
-            <p className="text-sm text-slate-600 mt-4 whitespace-pre-wrap bg-slate-50 rounded-xl p-4 border border-slate-100">
-              {ticket.message}
-            </p>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Raised By</p>
+                <p className="font-bold text-slate-800">{ticket.display_name}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</p>
+                <p className="font-medium text-slate-700">{ticket.email}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Created</p>
+                <p className="font-medium text-slate-700">{formatDateTime(ticket.created_at)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Last Updated</p>
+                <p className="font-medium text-slate-700">{formatDateTime(ticket.updated_at)}</p>
+              </div>
+            </div>
           </div>
-          {!isResolvedStatus(ticket.status) && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => updateTicket({ status: 'resolved' })}
-              className="shrink-0 px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest transition-colors"
-            >
-              Mark as Resolved
-            </button>
-          )}
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+          <div className="w-full lg:w-56 shrink-0">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Status</p>
             <select
               value={ticket.status}
@@ -209,32 +300,15 @@ export default function FounderTicketDetailPage() {
               onChange={(e) => updateTicket({ status: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-widest text-slate-700 outline-none"
             >
-              {SUPPORT_STATUSES.map((s) => (
+              {(FOUNDER_TICKET_STATUSES.includes(ticket.status as (typeof FOUNDER_TICKET_STATUSES)[number])
+                ? FOUNDER_TICKET_STATUSES
+                : [...FOUNDER_TICKET_STATUSES, ticket.status as (typeof FOUNDER_TICKET_STATUSES)[number]]
+              ).map((s) => (
                 <option key={s} value={s}>
-                  {s.replace(/_/g, ' ')}
+                  {founderStatusLabel(s)}
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Assigned To</p>
-            <select
-              value={ticket.assigned_to || ''}
-              disabled={saving}
-              onChange={(e) => updateTicket({ assignedTo: e.target.value || null })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-widest text-slate-700 outline-none"
-            >
-              <option value="">Unassigned</option>
-              {admins.map((admin) => (
-                <option key={admin.id} value={admin.id}>
-                  {admin.full_name || 'Admin'}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Opened</p>
-            <p className="text-sm font-bold text-slate-700 py-2.5">{new Date(ticket.created_at).toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -243,54 +317,149 @@ export default function FounderTicketDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <TicketConversationAdmin
             ticketId={ticket.id}
-            messages={messages}
-            onMessageSent={(message) => setMessages((prev) => [...prev, message])}
+            onStatusChange={(status) => setTicket((prev) => (prev ? { ...prev, status } : prev))}
           />
+
+          <Panel title="Attachments">
+            {attachmentsLoading && (
+              <p className="text-sm text-slate-400">Loading attachments...</p>
+            )}
+            {!attachmentsLoading && attachments.length === 0 && (
+              <p className="text-sm text-slate-400">No attachments on this ticket.</p>
+            )}
+            {!attachmentsLoading && attachments.length > 0 && (
+              <div className="space-y-3">
+                {attachments.map((attachment) => (
+                  <div key={`${attachment.url}-${attachment.uploaded_at}`} className="border border-slate-200 rounded-xl p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <a
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-blue-600 hover:text-blue-700"
+                        >
+                          {attachment.name}
+                        </a>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
+                          {formatFileSize(attachment.size)} · {formatDateTime(attachment.uploaded_at)}
+                        </p>
+                      </div>
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-blue-600"
+                      >
+                        Download
+                      </a>
+                    </div>
+                    {isPreviewable(attachment.type) && attachment.type.startsWith('image/') && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={attachment.url}
+                        alt={attachment.name}
+                        className="mt-3 max-h-56 rounded border border-slate-100 object-contain"
+                      />
+                    )}
+                    {isPreviewable(attachment.type) && attachment.type === 'application/pdf' && (
+                      <iframe
+                        src={attachment.url}
+                        title={attachment.name}
+                        className="mt-3 h-56 w-full rounded border border-slate-100"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
         </div>
 
         <div className="space-y-6">
           {user && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">User Profile</h3>
-              <Link href={`/founder/users/${user.id}`} className="block hover:opacity-80 transition-opacity">
-                <p className="font-black text-slate-900">{user.full_name || ticket.name}</p>
-                <p className="text-xs text-slate-400">{ticket.email}</p>
-              </Link>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge label={user.role || 'user'} tone="slate" />
-                {user.is_freelancer && <Badge label="Builder" tone="purple" />}
-                {user.is_verified && <Badge label="Verified" tone="green" />}
-                {user.is_admin && <Badge label="Admin" tone="rose" />}
+            <Panel title="Customer Information">
+              <p className="font-black text-slate-900">{user.display_name}</p>
+              <p className="text-sm text-slate-500 mt-1">{user.email}</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-400 font-medium">Role</span>
+                  <span className="font-bold text-slate-700">{user.role}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-400 font-medium">Country</span>
+                  <span className="font-bold text-slate-700">{user.country || '—'}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-400 font-medium">Member Since</span>
+                  <span className="font-bold text-slate-700">{new Date(user.member_since).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {user.verified_buyer && <Badge label="Verified Buyer" tone="green" />}
+                {user.is_verified_builder && <Badge label="Verified Builder" tone="green" />}
               </div>
               <Link
                 href={`/founder/users/${user.id}`}
                 className="inline-block mt-4 text-xs font-black uppercase tracking-widest text-blue-600 hover:text-blue-700"
               >
-                View Full Profile →
+                Profile →
               </Link>
-            </div>
+            </Panel>
           )}
 
-          {relatedRows.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Related Records</h3>
+          <Panel title="Quick Actions">
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={saving || ticket.status === 'resolved'}
+                onClick={() => updateTicket({ status: 'resolved' })}
+                className="w-full px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest"
+              >
+                Mark Resolved
+              </button>
+              <button
+                type="button"
+                disabled={saving || ticket.status === 'closed'}
+                onClick={() => updateTicket({ status: 'closed' })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-xs font-black uppercase tracking-widest text-slate-700"
+              >
+                Close Ticket
+              </button>
+              {quickActionLinks.map((action) => (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-blue-200 text-center text-xs font-black uppercase tracking-widest text-blue-600"
+                >
+                  {action.label}
+                </Link>
+              ))}
+            </div>
+          </Panel>
+
+          {relatedLinks.length > 0 && (
+            <Panel title="Related Records">
               <div className="space-y-3">
-                {relatedRows.map(([label, value, href]) => (
-                  <Link key={label} href={href} className="block rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 hover:border-blue-200 transition-colors">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-                    <p className="text-sm font-bold text-slate-700">{value}</p>
+                {relatedLinks.map((row) => (
+                  <Link
+                    key={row.label}
+                    href={row.href}
+                    className="block rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 hover:border-blue-200 transition-colors"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{row.label}</p>
+                    <p className="text-sm font-bold text-slate-700">{row.value}</p>
                   </Link>
                 ))}
               </div>
-            </div>
+            </Panel>
           )}
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Business Timeline</h3>
-            <BusinessTimeline entityType="support_ticket" entityId={ticket.id} />
-          </div>
+          <Panel title="Business Timeline">
+            <BusinessTimeline entityType="support_ticket" entityId={ticket.id} order="asc" />
+          </Panel>
 
-          <InternalNotesPanel entityType="support_ticket" entityId={ticket.id} />
+          <InternalNotesPanel entityType="support_ticket" entityId={ticket.id} order="asc" />
         </div>
       </div>
     </div>

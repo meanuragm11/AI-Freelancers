@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { requireFounder, supabaseAdmin, logAdminAction } from '@/lib/founder/server';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
+import { loadDisputeParticipantSummaries } from '@/lib/disputes/participantSummary';
+import {
+  DISPUTE_STATUS_LABELS,
+} from '@/lib/disputes/constants';
+import {
+  assertValidDecisionInput,
+  canSaveDecision,
+  canStartInvestigation,
+  nextStatusAfterSaveDecision,
+  paymentExecutionClosesDispute,
+} from '@/lib/disputes/transitions';
+import { notifyDisputeParticipants } from '@/lib/disputes/founderNotifications';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -14,8 +26,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const { data: dispute, error: disputeError } = await supabaseAdmin
       .from('disputes')
       .select(
-        `*, buyer:buyer_id(id, full_name, is_verified, kyc_status, created_at),
-         freelancer:freelancer_id(id, full_name, is_verified, kyc_status, created_at),
+        `id, collab_id, buyer_id, freelancer_id, status, priority, decision_type, decision_summary,
+         buyer_split_pct, builder_split_pct, payment_execution_status, primary_reason, detailed_explanation,
+         event_timeline, freelancer_response, escrow_frozen_at, investigation_started_at, decision_recorded_at,
+         resolved_at, closed_at, created_at, updated_at, resolved_by,
          collab:collab_id(id, title, status, escrow_amount_usd, payment_type, created_at)`
       )
       .eq('id', id)
@@ -26,52 +40,23 @@ export async function GET(_req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Dispute not found' }, { status: 404 });
     }
 
-    const [{ data: timeline }, { data: evidence }, { data: messages }, { data: notes }, { data: refunds }, { data: refundableTransactions }] = await Promise.all([
-      supabaseAdmin
-        .from('dispute_timeline_entries')
-        .select('*, actor:actor_id(full_name)')
-        .eq('dispute_id', dispute.id)
-        .order('created_at', { ascending: true }),
-      supabaseAdmin
-        .from('dispute_evidence')
-        .select('*')
-        .eq('dispute_id', dispute.id)
-        .order('created_at', { ascending: true }),
-      supabaseAdmin
-        .from('messages')
-        .select('id, sender_id, content, text, created_at, message_kind, system_event_type')
-        .eq('collab_id', dispute.collab_id)
-        .order('created_at', { ascending: true })
-        .limit(200),
-      supabaseAdmin
-        .from('admin_internal_notes')
-        .select('id, body, created_at, created_by, author:created_by(full_name)')
-        .eq('entity_type', 'dispute')
-        .eq('entity_id', dispute.id)
-        .order('created_at', { ascending: false }),
-      supabaseAdmin
-        .from('refund_requests')
-        .select('*')
-        .eq('collab_id', dispute.collab_id)
-        .order('created_at', { ascending: false }),
-      supabaseAdmin
-        .from('transactions')
-        .select('id, amount_usd, status, razorpay_payment_id, transaction_type, created_at')
-        .eq('buyer_id', dispute.buyer_id)
-        .eq('status', 'completed')
-        .not('razorpay_payment_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(20),
-    ]);
+    const participants = await loadDisputeParticipantSummaries(
+      supabaseAdmin,
+      dispute.buyer_id,
+      dispute.freelancer_id
+    );
 
     return NextResponse.json({
-      dispute,
-      timeline: timeline ?? [],
-      evidence: evidence ?? [],
-      messages: messages ?? [],
-      notes: notes ?? [],
-      refunds: refunds ?? [],
-      refundableTransactions: refundableTransactions ?? [],
+      dispute: {
+        ...dispute,
+        short_id: dispute.id.slice(0, 8).toUpperCase(),
+        status_label: DISPUTE_STATUS_LABELS[dispute.status] || dispute.status,
+        can_start_investigation: canStartInvestigation(dispute.status),
+        can_save_decision: canSaveDecision(dispute.status),
+        execution_pending: dispute.status === 'waiting_for_payment_execution',
+      },
+      buyer: participants.buyer,
+      builder: participants.builder,
     });
   } catch (error: unknown) {
     console.error('Founder dispute detail error:', error);
@@ -80,7 +65,13 @@ export async function GET(_req: Request, { params }: RouteParams) {
   }
 }
 
-const RESOLVABLE_STATUSES = ['resolved', 'closed'];
+type PatchBody = {
+  action?: 'start_investigation' | 'save_decision';
+  decisionType?: string;
+  decisionSummary?: string;
+  buyerSplitPct?: number;
+  builderSplitPct?: number;
+};
 
 export async function PATCH(req: Request, { params }: RouteParams) {
   const auth = await requireFounder();
@@ -88,12 +79,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { status, resolutionSummary, resolutionType, decisionNote } = body;
+    const body = (await req.json()) as PatchBody;
+    const { action } = body;
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('disputes')
-      .select('id, status, collab_id')
+      .select('id, status, collab_id, buyer_id, freelancer_id, decision_type, collab:collab_id(title)')
       .eq('id', id)
       .maybeSingle();
 
@@ -102,21 +93,74 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Dispute not found' }, { status: 404 });
     }
 
+    const projectTitle = (existing.collab as { title?: string } | null)?.title || 'your project';
+    const now = new Date().toISOString();
     const updates: Record<string, unknown> = {};
+    let timelineDescription = '';
+    let timelineType = 'admin_action';
 
-    if (status) {
-      updates.status = status;
-      if (RESOLVABLE_STATUSES.includes(status)) {
-        updates.resolved_by = auth.actor.id;
-        updates.resolved_at = new Date().toISOString();
-        if (status === 'closed') updates.closed_at = new Date().toISOString();
+    if (action === 'start_investigation') {
+      if (!canStartInvestigation(existing.status)) {
+        return NextResponse.json({ error: 'Dispute is not in Open status' }, { status: 409 });
       }
-    }
-    if (resolutionSummary !== undefined) updates.resolution_summary = resolutionSummary;
-    if (resolutionType !== undefined) updates.resolution_type = resolutionType;
+      updates.status = 'under_investigation';
+      updates.investigation_started_at = now;
+      timelineType = 'investigation_started';
+      timelineDescription = 'Founder moved the dispute to Under Investigation.';
+    } else if (action === 'save_decision') {
+      if (!canSaveDecision(existing.status)) {
+        return NextResponse.json(
+          { error: 'Decision can only be saved while the dispute is Open or Under Investigation' },
+          { status: 409 }
+        );
+      }
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      try {
+        assertValidDecisionInput({
+          decisionType: body.decisionType || 'pending',
+          decisionSummary: body.decisionSummary || '',
+          buyerSplitPct: body.buyerSplitPct,
+          builderSplitPct: body.builderSplitPct,
+        });
+      } catch (validationError: unknown) {
+        const message = validationError instanceof Error ? validationError.message : 'Invalid decision';
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+
+      const nextStatus = nextStatusAfterSaveDecision(existing.status);
+      updates.decision_type = body.decisionType;
+      updates.decision_summary = body.decisionSummary?.trim();
+      updates.decision_recorded_at = now;
+      updates.resolved_by = auth.actor.id;
+      updates.status = nextStatus;
+      updates.payment_execution_status = paymentExecutionClosesDispute(body.decisionType || '')
+        ? 'not_required'
+        : 'pending';
+
+      if (body.decisionType === 'split') {
+        updates.buyer_split_pct = Number(body.buyerSplitPct);
+        updates.builder_split_pct = Number(body.builderSplitPct);
+      } else {
+        updates.buyer_split_pct = null;
+        updates.builder_split_pct = null;
+      }
+
+      if (existing.status === 'open') {
+        updates.investigation_started_at = existing.status === 'open' ? now : undefined;
+      }
+
+      timelineType = 'decision_recorded';
+      timelineDescription = `Founder recorded decision: ${body.decisionType?.replace(/_/g, ' ')}. ${body.decisionSummary?.trim()}`;
+
+      if (paymentExecutionClosesDispute(body.decisionType || '')) {
+        updates.status = 'closed';
+        updates.closed_at = now;
+        updates.resolved_at = now;
+        updates.payment_execution_status = 'not_required';
+        timelineDescription += ' Dispute cancelled — no payment execution required.';
+      }
+    } else {
+      return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin
@@ -133,17 +177,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       collab_id: existing.collab_id,
       actor_id: auth.actor.id,
       actor_role: 'admin',
-      entry_type: status ? 'admin_decision' : 'admin_note',
-      description:
-        decisionNote?.trim() ||
-        resolutionSummary?.trim() ||
-        `Founder updated dispute${status ? ` status to ${status}` : ''}.`,
+      entry_type: timelineType,
+      description: timelineDescription,
       metadata: { updates },
     });
 
     await logAdminAction({
       actor: auth.actor,
-      action: 'dispute.update',
+      action: `dispute.${action}`,
       targetType: 'dispute',
       targetId: id,
       previousValue: existing,
@@ -151,14 +192,27 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     });
 
     void logBusinessEvent({
-      eventType: status ? `dispute.${status}` : 'dispute.updated',
+      eventType: `dispute.${timelineType}`,
       entityType: 'dispute',
       entityId: id,
       collabId: existing.collab_id,
       actorId: auth.actor.id,
-      summary: decisionNote?.trim() || resolutionSummary?.trim() || `Founder updated dispute${status ? ` status to ${status}` : ''}`,
+      summary: timelineDescription,
       metadata: { updates },
     });
+
+    if (action === 'save_decision') {
+      void notifyDisputeParticipants({
+        buyerId: existing.buyer_id,
+        builderId: existing.freelancer_id,
+        collabId: existing.collab_id,
+        projectTitle,
+        title: 'Dispute decision recorded',
+        message: `A founder decision was recorded for "${projectTitle}". Payment execution will follow in Payments.`,
+        eventKey: `decision:${id}`,
+        actorId: auth.actor.id,
+      });
+    }
 
     return NextResponse.json({ dispute: updated });
   } catch (error: unknown) {

@@ -251,7 +251,7 @@ export default function OpenProjectDetailContent() {
               </div>
             </header>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
               <StatCard
                 label="Budget"
                 value={`$${project.budget_min_usd?.toLocaleString() ?? '—'} – $${project.budget_max_usd?.toLocaleString() ?? '—'}`}
@@ -339,7 +339,7 @@ export default function OpenProjectDetailContent() {
           </div>
 
           <aside className="space-y-6">
-            <div className="sticky top-6 space-y-6">
+            <div className="lg:sticky lg:top-24 space-y-6">
               {canShowSubmit && (
                 <div className="rounded-xl border border-slate-200/80 bg-white p-6 shadow-sm">
                   <h3 className="text-sm font-bold text-slate-900">Interested in this project?</h3>

@@ -6,24 +6,8 @@ import { cookies } from 'next/headers';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
 import { SUPPORT_ARBITRATION_RELATED_CATEGORIES } from '@/lib/support/constants';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
-
-const ACTIVE_DISPUTE_STATUSES = [
-  'waiting_for_freelancer',
-  'waiting_for_buyer',
-  'negotiation',
-  'under_review',
-  'arbitration_requested',
-];
-
-const DISPUTE_STATUS_LABELS: Record<string, string> = {
-  waiting_for_freelancer: 'Waiting for Freelancer',
-  waiting_for_buyer: 'Waiting for Buyer',
-  negotiation: 'Negotiation',
-  under_review: 'Under Review',
-  arbitration_requested: 'Arbitration Requested',
-  resolved: 'Resolved',
-  closed: 'Closed',
-};
+import { ACTIVE_DISPUTE_STATUSES, DISPUTE_STATUS_LABELS } from '@/lib/disputes/constants';
+import { notifyFoundersOfDisputeEvent } from '@/lib/disputes/founderNotifications';
 
 type EvidenceFile = {
   name: string;
@@ -459,7 +443,7 @@ export async function POST(req: Request) {
         buyer_id: collab.buyer_id,
         freelancer_id: collab.builder_id,
         opened_by: user.id,
-        status: 'waiting_for_freelancer',
+        status: 'open',
         primary_reason: body.primaryReason,
         detailed_explanation: body.detailedExplanation,
         event_timeline: body.eventTimeline,
@@ -528,6 +512,13 @@ export async function POST(req: Request) {
       summary: `Dispute opened for "${collab.title || 'a project'}": ${body.primaryReason}`,
     });
 
+    void notifyFoundersOfDisputeEvent({
+      disputeId: dispute.id,
+      title: 'New dispute opened',
+      message: `A buyer opened a dispute for "${collab.title || 'a project'}".`,
+      idempotencyKey: `opened:${dispute.id}`,
+    });
+
     return NextResponse.json({ dispute });
   } catch (error: unknown) {
     return disputeErrorResponse(error, { method: 'POST', collabId, userId, action: 'open' }, 'Unable to open dispute');
@@ -573,7 +564,7 @@ export async function PATCH(req: Request) {
       }
       if (!body.response?.trim()) return NextResponse.json({ error: 'response is required' }, { status: 400 });
 
-      nextStatus = 'negotiation';
+      nextStatus = 'open';
       updatePayload = {
         status: nextStatus,
         freelancer_response: body.response,
@@ -582,7 +573,7 @@ export async function PATCH(req: Request) {
       description = 'Freelancer submitted an immutable response.';
       notificationTitle = 'Freelancer responded to dispute';
       notificationMessage = `The freelancer responded to the dispute for "${collab.title}". Review their statement in the Dispute Center.`;
-      systemMessage = 'Freelancer submitted their dispute response. The dispute is now in negotiation.';
+      systemMessage = 'Freelancer submitted their dispute response.';
     } else if (body.action === 'comment') {
       if (!body.comment?.trim() && !body.files?.length) {
         return NextResponse.json({ error: 'comment or files are required' }, { status: 400 });
@@ -598,19 +589,22 @@ export async function PATCH(req: Request) {
       updatePayload = {
         status: nextStatus,
         closed_at: new Date().toISOString(),
-        resolution_summary: body.comment || 'Buyer withdrew the dispute.',
+        decision_type: 'cancelled',
+        decision_summary: body.comment || 'Buyer withdrew the dispute.',
+        payment_execution_status: 'not_required',
       };
       description = body.comment || 'Buyer withdrew the dispute.';
       notificationTitle = 'Dispute withdrawn';
       notificationMessage = `The buyer withdrew the dispute for "${collab.title}". Escrow controls have been restored.`;
       systemMessage = 'The buyer withdrew the dispute. Escrow controls have been restored.';
     } else if (body.action === 'request_arbitration') {
-      nextStatus = 'arbitration_requested';
+      nextStatus = 'under_investigation';
       timelineType = 'arbitration_requested';
       updatePayload = {
         status: nextStatus,
         arbitration_requested_at: new Date().toISOString(),
         arbitration_requested_by: user.id,
+        investigation_started_at: new Date().toISOString(),
         arbitration_snapshot: await buildArbitrationSnapshot(body.collabId),
       };
       description = body.comment || 'Arbitration was requested.';
@@ -622,7 +616,7 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: 'Only the freelancer can propose a resolution' }, { status: 403 });
       }
       if (!body.proposal?.trim()) return NextResponse.json({ error: 'proposal is required' }, { status: 400 });
-      nextStatus = 'waiting_for_buyer';
+      nextStatus = 'open';
       timelineType = 'resolution_proposed';
       updatePayload = {
         status: nextStatus,
@@ -649,6 +643,15 @@ export async function PATCH(req: Request) {
         .from('collabs')
         .update({ status: dispute.collab_status_before || 'funded' })
         .eq('id', collab.id);
+    }
+
+    if (body.action === 'comment' || body.action === 'respond') {
+      void notifyFoundersOfDisputeEvent({
+        disputeId: dispute.id,
+        title: body.files?.length ? 'New dispute evidence' : 'New dispute reply',
+        message: `There is a new update on the dispute for "${collab.title || 'a project'}".`,
+        idempotencyKey: `${body.action}:${dispute.id}:${Date.now()}`,
+      });
     }
 
     if (body.action === 'request_arbitration') {
