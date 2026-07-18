@@ -15,7 +15,6 @@ import { ONBOARDING_COUNTRIES, type OnboardingProfileState } from '@/lib/onboard
 import { listBuilderProjectRequests } from '@/lib/project-requests';
 import { ACTIVE_COLLAB_STATUSES, COMPLETED_COLLAB_STATUSES } from '@/lib/marketplace/status';
 import { getDisplayNameInitials } from '@/lib/display/formatDisplayName';
-import { WorkspaceShell, useWorkspaceDrawerClose } from '@/components/layout/WorkspaceShell';
 
 const Icons = {
   Overview: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
@@ -321,18 +320,75 @@ export default function UnifiedBuilderWorkspace() {
   // VIEW B: THE MASTER DASHBOARD (BUILDER OS)
   // ==========================================
   return (
-    <WorkspaceShell
-      sidebar={
-        <BuilderDashboardSidebar
-          profile={profile}
-          activeView={activeView}
-          setActiveView={setActiveView}
-          router={router}
-        />
-      }
-      menuLabel="Open expert workspace navigation"
-    >
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 min-w-0">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans selection:bg-blue-200 selection:text-blue-900">
+
+      {/* SIDEBAR NAVIGATION */}
+      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 sticky top-0 md:h-screen overflow-y-auto hidden-scrollbar z-40">
+
+        {/* User Identity */}
+        <div className="p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Operating Expert</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0 border border-slate-700 flex items-center justify-center">
+              {profile?.avatar_url ? (
+                <Image src={profile.avatar_url} fill sizes="40px" className="object-cover" alt="User" priority />
+              ) : (
+                <span className="text-slate-400 text-sm font-bold">{profile?.full_name?.charAt(0) || '?'}</span>
+              )}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-sm font-black text-white truncate">{profile?.full_name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-green-400">Available</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-2">Workspace</p>
+          <button onClick={() => setActiveView('overview')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'overview' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Overview} Dashboard
+          </button>
+          <button onClick={() => setActiveView('projects')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'projects' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Projects} My Clients
+          </button>
+          <button onClick={() => setActiveView('services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'services' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Assets} My Services
+          </button>
+          <button onClick={() => setActiveView('portfolio')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'portfolio' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Projects} Portfolio
+          </button>
+          <button onClick={() => setActiveView('requests')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'requests' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Messages} Custom Requests
+          </button>
+          <button onClick={() => router.push('/builder/inbox')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'messages' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Messages} Inbox
+          </button>
+
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Inventory & Sales</p>
+          <button onClick={() => setActiveView('services')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'services' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Assets} AI Solutions
+          </button>
+          <button onClick={() => setActiveView('finances')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'finances' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            {Icons.Finances} Earnings Ledger
+          </button>
+          <Link href="/builder/recognition" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white">
+            {Icons.Profile} Recognition
+          </Link>
+        </nav>
+
+        <div className="p-4 border-t border-slate-800 space-y-1 mt-auto">
+          <Link href="/profile/me" className="w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white">
+            {Icons.Profile} Edit Public Profile
+          </Link>
+        </div>
+      </aside>
+
+      {/* DASHBOARD MAIN CONTENT */}
+      <main className="flex-1 p-6 md:p-10 lg:p-12 overflow-y-auto w-full">
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
 
           {/* =========================================================
               VIEW 1: OVERVIEW
@@ -548,6 +604,7 @@ export default function UnifiedBuilderWorkspace() {
           {activeView === 'finances' && <EarningsLedgerPanel />}
 
         </div>
+      </main>
 
       {/* Negotiation Modal */}
       {selectedRequest && (
@@ -561,109 +618,6 @@ export default function UnifiedBuilderWorkspace() {
           onSubmit={handleNegotiationSubmit}
         />
       )}
-    </WorkspaceShell>
-  );
-}
-
-type BuilderDashboardSidebarProps = {
-  profile: any;
-  activeView: DashboardView;
-  setActiveView: (view: DashboardView) => void;
-  router: ReturnType<typeof useRouter>;
-};
-
-function BuilderDashboardSidebar({
-  profile,
-  activeView,
-  setActiveView,
-  router,
-}: BuilderDashboardSidebarProps) {
-  const closeDrawer = useWorkspaceDrawerClose();
-  const navButtonClass = (view: DashboardView) =>
-    `w-full text-left px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${
-      activeView === view ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-    }`;
-
-  const selectView = (view: DashboardView) => {
-    setActiveView(view);
-    closeDrawer?.();
-  };
-
-  return (
-    <>
-      <div className="p-6 pr-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Operating Expert</p>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0 border border-slate-700 flex items-center justify-center">
-            {profile?.avatar_url ? (
-              <Image src={profile.avatar_url} fill sizes="40px" className="object-cover" alt="User" priority />
-            ) : (
-              <span className="text-slate-400 text-sm font-bold">{profile?.full_name?.charAt(0) || '?'}</span>
-            )}
-          </div>
-          <div className="overflow-hidden min-w-0">
-            <p className="text-sm font-black text-white truncate">{profile?.full_name}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-green-400">Available</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 p-4 space-y-1">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-2">Workspace</p>
-        <button type="button" onClick={() => selectView('overview')} className={navButtonClass('overview')}>
-          {Icons.Overview} Dashboard
-        </button>
-        <button type="button" onClick={() => selectView('projects')} className={navButtonClass('projects')}>
-          {Icons.Projects} My Clients
-        </button>
-        <button type="button" onClick={() => selectView('services')} className={navButtonClass('services')}>
-          {Icons.Assets} My Services
-        </button>
-        <button type="button" onClick={() => selectView('portfolio')} className={navButtonClass('portfolio')}>
-          {Icons.Projects} Portfolio
-        </button>
-        <button type="button" onClick={() => selectView('requests')} className={navButtonClass('requests')}>
-          {Icons.Messages} Custom Requests
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            closeDrawer?.();
-            router.push('/builder/inbox');
-          }}
-          className={navButtonClass('messages')}
-        >
-          {Icons.Messages} Inbox
-        </button>
-
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Inventory & Sales</p>
-        <button type="button" onClick={() => selectView('services')} className={navButtonClass('services')}>
-          {Icons.Assets} AI Solutions
-        </button>
-        <button type="button" onClick={() => selectView('finances')} className={navButtonClass('finances')}>
-          {Icons.Finances} Earnings Ledger
-        </button>
-        <Link
-          href="/builder/recognition"
-          onClick={() => closeDrawer?.()}
-          className="w-full text-left px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white"
-        >
-          {Icons.Profile} Recognition
-        </Link>
-      </nav>
-
-      <div className="p-4 border-t border-slate-800 space-y-1 mt-auto">
-        <Link
-          href="/profile/me"
-          onClick={() => closeDrawer?.()}
-          className="w-full text-left px-4 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white"
-        >
-          {Icons.Profile} Edit Public Profile
-        </Link>
-      </div>
-    </>
+    </div>
   );
 }

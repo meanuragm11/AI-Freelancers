@@ -480,9 +480,9 @@ export default function BuyerSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-20">
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <Link
             href="/buyer/dashboard"
             className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-600 mb-2 inline-flex items-center gap-1 transition-colors"
@@ -499,9 +499,9 @@ export default function BuyerSettings() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full flex flex-col lg:flex-row gap-6 lg:gap-12 animate-in fade-in duration-500 min-w-0">
-        <aside className="w-full lg:w-64 shrink-0 min-w-0">
-          <nav className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0 lg:overflow-visible lg:sticky lg:top-24 scrollbar-hide -mx-1 px-1 lg:mx-0 lg:px-0">
+      <div className="max-w-7xl mx-auto px-6 py-8 w-full flex flex-col md:flex-row gap-8 lg:gap-12 animate-in fade-in duration-500">
+        <aside className="w-full md:w-64 shrink-0">
+          <nav className="flex flex-col gap-1 sticky top-24">
             {(
               [
                 ['profile', 'Profile Identity'],
@@ -514,7 +514,7 @@ export default function BuyerSettings() {
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`shrink-0 text-left px-4 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${
+                className={`text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-colors ${
                   activeTab === tab
                     ? 'bg-slate-900 text-white shadow-md'
                     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'

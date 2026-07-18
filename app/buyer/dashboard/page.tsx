@@ -7,7 +7,6 @@ import Link from 'next/link';
 import Image from '@/components/RemoteImage';
 import { BuyerProjectCard } from '@/components/open-projects/BuyerProjectCard';
 import { getDisplayNameInitials } from '@/lib/display/formatDisplayName';
-import { WorkspaceShell, useWorkspaceDrawerClose } from '@/components/layout/WorkspaceShell';
 
 type ProjectStatusLabel = 'Active' | 'Pending' | 'Completed' | 'Disputed' | 'Cancelled';
 
@@ -222,24 +221,87 @@ export default function BuyerDashboard() {
   }
 
   return (
-    <WorkspaceShell
-      sidebar={<BuyerDashboardSidebar profile={profile} />}
-    >
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 min-w-0">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans selection:bg-blue-200 selection:text-blue-900">
+      
+      {/* 1. ENTERPRISE SIDEBAR NAVIGATION */}
+      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 sticky top-0 md:h-screen overflow-y-auto hidden-scrollbar z-40">
+        
+        {/* User Identity Block */}
+        <div className="p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Client</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0 flex items-center justify-center">
+              {profile?.avatar_url ? (
+                <Image src={profile.avatar_url} fill sizes="40px" className="object-cover" alt="User" priority />
+              ) : (
+                <span className="text-slate-400 text-sm font-bold">{profile?.full_name?.charAt(0) || '?'}</span>
+              )}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-sm font-black text-white truncate">{profile?.full_name || 'Client'}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Enterprise Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Main Navigation */}
+        <nav className="flex-1 p-4 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-2">Workspace</p>
+          <Link href="/buyer/dashboard" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 bg-blue-600 text-white shadow-md">
+            {Icons.Dashboard} Dashboard
+          </Link>
+          <Link href="/buyer/projects" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Projects} My Services
+          </Link>
+          <Link href="/buyer/open-projects" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Hire} Open Projects
+          </Link>
+          <Link href="/buyer/messages" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Messages} Messages
+          </Link>
+
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Finances</p>
+          <Link href="/buyer/billing" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Escrow} Escrow Ledger
+          </Link>
+
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Discover</p>
+          <Link href="/buyer/discover" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Hire} Explore AI Services
+          </Link>
+          <Link href="/buyer/library" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Assets} My Library
+          </Link>
+          <Link href="/buyer/saved" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 hover:text-white text-slate-400">
+            {Icons.Saved} Saved Experts
+          </Link>
+        </nav>
+        
+        <div className="p-4 border-t border-slate-800 mt-auto">
+          <Link href="/buyer/settings" className="w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 text-slate-400 hover:text-white">
+            {Icons.Settings} Settings
+          </Link>
+        </div>
+      </aside>
+
+      {/* 2. MAIN CONTENT AREA */}
+      <main className="flex-1 p-6 md:p-10 lg:p-12 overflow-y-auto">
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
             <div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Command Center</h1>
               <p className="text-sm font-medium text-slate-500 mt-1">Manage your AI projects, freelancers, and escrow balances.</p>
             </div>
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 w-full md:w-auto shrink-0">
-            <Link href="/buyer/discover" className="w-full sm:w-auto text-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2">
+            <Link href="/buyer/discover" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Discover Experts
             </Link>
-            <Link href="/projects/new" className="w-full sm:w-auto text-center bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors">
+            <Link href="/projects/new" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-colors">
               Post Open Project
             </Link>
-          </div>
           </div>
 
           {/* --- KPI DASHBOARD --- */}
@@ -458,73 +520,7 @@ export default function BuyerDashboard() {
             )}
           </div>
         </div>
-    </WorkspaceShell>
-  );
-}
-
-function BuyerDashboardSidebar({ profile }: { profile: DashboardProfile | null }) {
-  const closeDrawer = useWorkspaceDrawerClose();
-  const navLinkClass = "w-full text-left px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3";
-
-  return (
-    <>
-      <div className="p-6 pr-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Client</p>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden relative shrink-0 flex items-center justify-center">
-            {profile?.avatar_url ? (
-              <Image src={profile.avatar_url} fill sizes="40px" className="object-cover" alt="User" priority />
-            ) : (
-              <span className="text-slate-400 text-sm font-bold">{profile?.full_name?.charAt(0) || '?'}</span>
-            )}
-          </div>
-          <div className="overflow-hidden min-w-0">
-            <p className="text-sm font-black text-white truncate">{profile?.full_name || 'Client'}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Enterprise Ready</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 p-4 space-y-1">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-2">Workspace</p>
-        <Link href="/buyer/dashboard" onClick={() => closeDrawer?.()} className={`${navLinkClass} bg-blue-600 text-white shadow-md`}>
-          {Icons.Dashboard} Dashboard
-        </Link>
-        <Link href="/buyer/projects" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Projects} My Services
-        </Link>
-        <Link href="/buyer/open-projects" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Hire} Open Projects
-        </Link>
-        <Link href="/buyer/messages" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Messages} Messages
-        </Link>
-
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Finances</p>
-        <Link href="/buyer/billing" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Escrow} Escrow Ledger
-        </Link>
-
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-4 mb-2 mt-6">Discover</p>
-        <Link href="/buyer/discover" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Hire} Explore AI Services
-        </Link>
-        <Link href="/buyer/library" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Assets} My Library
-        </Link>
-        <Link href="/buyer/saved" onClick={() => closeDrawer?.()} className={`${navLinkClass} hover:bg-slate-800 hover:text-white text-slate-400`}>
-          {Icons.Saved} Saved Experts
-        </Link>
-      </nav>
-
-      <div className="p-4 border-t border-slate-800 mt-auto">
-        <Link href="/buyer/settings" onClick={() => closeDrawer?.()} className="w-full text-left px-4 py-3 min-h-[44px] rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 hover:bg-slate-800 text-slate-400 hover:text-white">
-          {Icons.Settings} Settings
-        </Link>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
