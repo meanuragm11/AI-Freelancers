@@ -229,7 +229,7 @@ export default function LandingPage() {
         <section className="w-full max-w-7xl mx-auto px-6 py-10 relative z-10">
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured Open Projects</h2>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured Open Projects (COMING SOON - KEEP CHECKING TO BID FIRST)</h2>
               <p className="text-slate-500 font-medium">Post your project or submit proposals — hire through escrow when ready.</p>
             </div>
             <Link href="/projects" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Projects →</Link>
