@@ -13,6 +13,7 @@ import {
   paymentExecutionClosesDispute,
 } from '@/lib/disputes/transitions';
 import { notifyDisputeParticipants } from '@/lib/disputes/founderNotifications';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -212,6 +213,18 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         eventKey: `decision:${id}`,
         actorId: auth.actor.id,
       });
+
+      if (paymentExecutionClosesDispute(body.decisionType || '')) {
+        const finance = createFinanceIntegrationService(supabaseAdmin);
+        void finance.recordDisputeSettled({
+          disputeId: id,
+          collabId: existing.collab_id,
+          buyerId: existing.buyer_id,
+          builderId: existing.freelancer_id,
+          actorId: auth.actor.id,
+          decisionType: body.decisionType ?? null,
+        });
+      }
     }
 
     return NextResponse.json({ dispute: updated });

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { formatDisplayName } from '@/lib/display/formatDisplayName';
+import { resolveAppUrl } from '@/lib/urls/appUrl';
 import { sendEmailViaResend } from './resend';
 import {
   NotificationType,
@@ -20,6 +21,18 @@ import { DisputeEventTemplate } from './templates/DisputeEvent';
 import { ServicePurchasedTemplate } from './templates/ServicePurchased';
 import { AssetPurchasedTemplate } from './templates/AssetPurchased';
 import { SupportTicketTemplate } from './templates/SupportTicket';
+import {
+  buildEmailDescription,
+  buildEmailHeading,
+  buildEmailInfoItems,
+  buildEmailSubject,
+  buildEmailSummaryFields,
+  getEmailPrimaryCtaLabel,
+  getEmailPrimaryHref,
+  getEmailSecondaryCtaLabel,
+  getEmailSecondaryHref,
+  summaryFieldsToRows,
+} from './emailContent';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +41,6 @@ const supabaseAdmin = createClient(
 
 const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
 const EMAIL_THROTTLE_MS = 5 * 60 * 1000;
-const DEFAULT_DASHBOARD_PATH = '/buyer/dashboard';
 
 function logEvent(
   event: 'Notification Created' | 'Email Sent' | 'Email Failed' | 'Email Skipped',
@@ -41,16 +53,6 @@ function logEvent(
       ...details,
     })
   );
-}
-
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-}
-
-function resolveAbsoluteLink(link?: string): string {
-  if (!link) return getAppUrl();
-  if (link.startsWith('http://') || link.startsWith('https://')) return link;
-  return `${getAppUrl()}${link.startsWith('/') ? link : `/${link}`}`;
 }
 
 function formatDateTime(date = new Date()) {
@@ -104,58 +106,32 @@ function maskNotificationPrivacyFields(
   };
 }
 
-function getDashboardHref(link: string | undefined, metadata: SendNotificationParams['metadata']) {
-  const dashboardPath =
-    getMetadataString(metadata, 'dashboardPath') ??
-    (link?.startsWith('/builder') ? '/builder/dashboard' : DEFAULT_DASHBOARD_PATH);
+function buildEmailTemplateData(
+  type: NotificationType,
+  emailTitle: string,
+  emailMessage: string,
+  link: string | undefined,
+  metadata: SendNotificationParams['metadata']
+): EmailTemplateData {
+  const dateTime = formatDateTime();
+  const summaryFields = buildEmailSummaryFields(type, metadata, dateTime);
+  const summaryRows = summaryFieldsToRows(summaryFields);
 
-  return resolveAbsoluteLink(dashboardPath);
-}
-
-function getPrimaryCtaLabel(type: NotificationType) {
-  switch (type) {
-    case NotificationType.NEW_MESSAGE:
-      return 'Open conversation';
-    case NotificationType.CUSTOM_PROJECT_REQUEST:
-      return 'Review request';
-    case NotificationType.NEW_QUOTATION:
-      return 'View quotation';
-    case NotificationType.QUOTATION_ACCEPTED:
-      return 'Open project';
-    case NotificationType.ESCROW_FUNDED:
-    case NotificationType.MILESTONE_FUNDED:
-      return 'View escrow';
-    case NotificationType.MILESTONE_PROPOSED:
-    case NotificationType.MILESTONE_SUBMITTED:
-    case NotificationType.MILESTONE_APPROVED:
-      return 'View milestone';
-    case NotificationType.PROJECT_COMPLETED:
-      return 'View project';
-    case NotificationType.REVIEW_RECEIVED:
-      return 'View review';
-    case NotificationType.DISPUTE_EVENT:
-      return 'Open Dispute Center';
-    case NotificationType.REFUND_EVENT:
-      return 'View refund request';
-    case NotificationType.SERVICE_PURCHASED:
-      return 'View Services';
-    case NotificationType.AI_ASSET_PURCHASED:
-      return 'View asset';
-    case NotificationType.SUPPORT_TICKET:
-      return 'View ticket';
-    case NotificationType.OPEN_PROJECT_PROPOSAL:
-      return 'View proposals';
-    case NotificationType.OPEN_PROJECT_HIRED:
-      return 'Open workspace';
-    case NotificationType.OPEN_PROJECT_PROPOSAL_REJECTED:
-      return 'View proposals';
-    case NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_1:
-    case NotificationType.OPEN_PROJECT_ACTIVITY_REMINDER_2:
-    case NotificationType.OPEN_PROJECT_AUTO_ARCHIVED:
-      return 'Manage project';
-    default:
-      return 'View details';
-  }
+  return {
+    type,
+    heading: buildEmailHeading(type, emailTitle, metadata),
+    projectName: getMetadataString(metadata, 'projectName'),
+    projectStatus: getMetadataString(metadata, 'projectStatus'),
+    dateTime,
+    content: buildEmailDescription(type, emailMessage, metadata),
+    primaryCtaLabel: getEmailPrimaryCtaLabel(type),
+    primaryCtaHref: resolveAppUrl(getEmailPrimaryHref(type, link)),
+    secondaryCtaLabel: getEmailSecondaryCtaLabel(type),
+    secondaryCtaHref: resolveAppUrl(getEmailSecondaryHref(metadata)),
+    summaryFields,
+    summaryRows,
+    infoItems: buildEmailInfoItems(type),
+  };
 }
 
 export async function resolveRecipientEmail(recipientId: string): Promise<string | null> {
@@ -282,7 +258,7 @@ async function getBundledMessageContent(
   const scope = conversationId ? 'this conversation' : 'your inbox';
   return {
     title: `${unreadCount} new messages`,
-    message: `You have ${unreadCount} unread messages in ${scope}. Open your inbox to catch up.`,
+    message: `You have ${unreadCount} unread messages in ${scope}. Open your inbox to read and reply.`,
     unreadCount,
   };
 }
@@ -315,46 +291,6 @@ function renderTemplate(type: NotificationType, data: EmailTemplateData): React.
   };
 
   return React.createElement(templateMap[type], data);
-}
-
-function buildEmailSubject(type: NotificationType, title: string, projectName?: string): string {
-  const prefix = projectName ? `${projectName} — ` : '';
-  switch (type) {
-    case NotificationType.NEW_MESSAGE:
-      return `${prefix}${title}`;
-    case NotificationType.CUSTOM_PROJECT_REQUEST:
-      return `${prefix}New project request`;
-    case NotificationType.NEW_QUOTATION:
-      return `${prefix}New quotation received`;
-    case NotificationType.QUOTATION_ACCEPTED:
-      return `${prefix}Quotation accepted`;
-    case NotificationType.ESCROW_FUNDED:
-      return `${prefix}Escrow funded`;
-    case NotificationType.MILESTONE_PROPOSED:
-      return `${prefix}New milestone proposed`;
-    case NotificationType.MILESTONE_FUNDED:
-      return `${prefix}Milestone funded`;
-    case NotificationType.MILESTONE_SUBMITTED:
-      return `${prefix}Deliverable submitted`;
-    case NotificationType.MILESTONE_APPROVED:
-      return `${prefix}Milestone approved`;
-    case NotificationType.PROJECT_COMPLETED:
-      return `${prefix}Project completed`;
-    case NotificationType.REVIEW_RECEIVED:
-      return `${prefix}New review received`;
-    case NotificationType.DISPUTE_EVENT:
-      return `${prefix}${title}`;
-    case NotificationType.REFUND_EVENT:
-      return `${prefix}${title}`;
-    case NotificationType.SERVICE_PURCHASED:
-      return `${prefix}Service purchased`;
-    case NotificationType.AI_ASSET_PURCHASED:
-      return `${prefix}AI asset purchased`;
-    case NotificationType.SUPPORT_TICKET:
-      return title.startsWith('[') ? title : `[Zelance Support] ${title}`;
-    default:
-      return title;
-  }
 }
 
 export async function sendNotification(
@@ -526,19 +462,7 @@ export async function sendNotification(
       emailMessage = bundled.message;
     }
 
-    const absoluteLink = resolveAbsoluteLink(link);
-    const templateData: EmailTemplateData = {
-      type,
-      heading: emailTitle,
-      projectName: getMetadataString(metadata, 'projectName'),
-      projectStatus: getMetadataString(metadata, 'projectStatus'),
-      dateTime: formatDateTime(),
-      content: emailMessage,
-      primaryCtaLabel: getPrimaryCtaLabel(type),
-      primaryCtaHref: absoluteLink,
-      secondaryCtaLabel: 'Open dashboard',
-      secondaryCtaHref: getDashboardHref(link, metadata),
-    };
+    const templateData = buildEmailTemplateData(type, emailTitle, emailMessage, link, metadata);
 
     const react = renderTemplate(type, templateData);
     const subject = buildEmailSubject(type, emailTitle, getMetadataString(metadata, 'projectName'));

@@ -104,6 +104,7 @@ export function AuthExperience() {
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -123,10 +124,17 @@ export function AuthExperience() {
 
   useEffect(() => {
     const error = searchParams.get("error");
+    const message = searchParams.get("message");
+
     if (error === "email_exists") {
       setFormError(
         "This email is already registered with a password. Please log in with your password instead of Google."
       );
+    }
+
+    if (message === "password_reset") {
+      setSuccessMessage("Your password was updated. Sign in with your new password.");
+      setIsLogin(true);
     }
   }, [searchParams]);
 
@@ -489,6 +497,15 @@ export function AuthExperience() {
               <div className="h-px flex-1 bg-slate-200" aria-hidden="true" />
             </div>
 
+            {successMessage && (
+              <div
+                role="status"
+                className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+              >
+                {successMessage}
+              </div>
+            )}
+
             {formError && (
               <div
                 id={formErrorId}
@@ -597,6 +614,17 @@ export function AuthExperience() {
                 </div>
                 <FieldError id={passwordErrorId} message={fieldErrors.password} />
               </div>
+
+              {isLogin && (
+                <div className="flex justify-end">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
 
               <button
                 type="submit"

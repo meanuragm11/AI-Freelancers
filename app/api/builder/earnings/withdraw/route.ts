@@ -11,13 +11,10 @@ import {
 import { requireBuilderAccount } from '@/lib/server/builderAuth';
 
 import { logBusinessEvent } from '@/lib/events/businessEvents';
-
-
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type WithdrawPayload = {
-
   amountUsd?: number;
-
 };
 
 
@@ -30,6 +27,7 @@ function createReferenceCode() {
 
 
 
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 payout engine — automated payout execution, status webhooks, ledger entries.
 export async function POST(req: Request) {
 
   try {
@@ -202,7 +200,17 @@ export async function POST(req: Request) {
 
     });
 
-
+    const withdrawalId = (withdrawal as { id?: string } | null)?.id;
+    if (withdrawalId) {
+      const finance = createFinanceIntegrationService(auth.supabaseAdmin);
+      void finance.recordWithdrawalRequested({
+        withdrawalId,
+        builderId: auth.user.id,
+        amountUsd: amount,
+        referenceCode,
+        actorId: auth.user.id,
+      });
+    }
 
     return NextResponse.json({
 

@@ -79,6 +79,12 @@ export const pageSeo = {
       'Zelance policies on AI-generated content, intellectual property rights, and infringement reporting on the marketplace.',
     path: '/ai-intellectual-property-policy',
   },
+  faq: {
+    title: 'FAQ',
+    description:
+      'Answers to common questions about Zelance — getting started, AI Solutions, projects, payments, reviews, accounts, and support.',
+    path: '/faq',
+  },
 } as const;
 
 export const homePageMetadata = generateSEOMetadata({ ...pageSeo.home, absoluteTitle: true });
@@ -93,6 +99,8 @@ export const workspacePageMetadata = generateSEOMetadata({
   ...pageSeo.workspace,
   noIndex: true,
 });
+
+export const faqPageMetadata = generateSEOMetadata(pageSeo.faq);
 
 export const legalPageMetadata = {
   terms: generateSEOMetadata(pageSeo.terms),

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 
 const PLATFORM_FEE = 5;
 
+// TODO(FINANCE_PHASE_1): Remove legacy direct-fund path — require per-milestone Razorpay escrow checkout.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -89,6 +89,7 @@ function escrowDepositStatus(
   return 'pending';
 }
 
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 ledger — event-sourced entries, service_purchase earnings, SQL/TS parity tests.
 export async function computeBuilderEarningsLedger(
   supabaseAdmin: SupabaseClient,
   builderId: string

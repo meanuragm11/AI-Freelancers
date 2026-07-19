@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       });
     }
 
+    // TODO(FINANCE_PHASE_1): Integrate with Finance V2 payment verification — shared idempotency keys with webhook path.
     const result = await fulfillRazorpayPayment({
       checkoutType,
       referenceId: transaction.item_id,

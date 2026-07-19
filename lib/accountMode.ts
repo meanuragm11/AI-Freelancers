@@ -45,3 +45,8 @@ export function showsBecomeExpertNav(profile: ProfileAccountFlags | null | undef
 export function getWorkspaceHref(profile: ProfileAccountFlags | null | undefined): string {
   return isVerifiedBuilder(profile) ? '/builder/dashboard' : '/buyer/dashboard';
 }
+
+/** Escrow ledger destination used by transactional email CTAs. */
+export function getEscrowLedgerHref(profile: ProfileAccountFlags | null | undefined): string {
+  return isVerifiedBuilder(profile) ? '/builder/dashboard' : '/buyer/billing';
+}

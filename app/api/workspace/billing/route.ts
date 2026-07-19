@@ -93,6 +93,7 @@ export async function POST(req: Request) {
     // 3. Generate Unique Invoice Number (e.g., ZEL-INV-169872)
     const invoiceNumber = `ZEL-INV-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    // TODO(FINANCE_PHASE_1): Integrate with Finance V2 escrow release — replace legacy release_escrow; wire Razorpay Route payout.
     // 4. Create the Invoice Record in the Ledger
     const { error: invoiceError } = await supabaseAdmin
       .from('invoices')

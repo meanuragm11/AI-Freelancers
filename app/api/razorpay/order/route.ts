@@ -100,6 +100,7 @@ function mapTransactionType(transactionType: string) {
   return null;
 }
 
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 checkout service — centralized fee resolver, order audit trail, currency module.
 export async function POST(req: Request) {
   try {
     const user = await getServerUser();

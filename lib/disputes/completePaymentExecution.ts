@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 import { paymentExecutionClosesDispute } from '@/lib/disputes/transitions';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type CompletePaymentExecutionParams = {
   supabaseAdmin: SupabaseClient;
@@ -99,6 +100,16 @@ export async function completeDisputePaymentExecution({
       collabId: dispute.collab_id,
       actorId: actorId ?? undefined,
       summary: `Dispute closed after payment execution for "${projectTitle}"`,
+    });
+
+    const finance = createFinanceIntegrationService(supabaseAdmin);
+    void finance.recordDisputeSettled({
+      disputeId,
+      collabId: dispute.collab_id,
+      buyerId: dispute.buyer_id,
+      builderId: dispute.freelancer_id,
+      actorId,
+      decisionType: dispute.decision_type ?? null,
     });
   } else if (success) {
     const projectTitle = (dispute.collab as { title?: string } | null)?.title || 'your project';

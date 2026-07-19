@@ -41,6 +41,11 @@ export interface NotificationMetadata {
   ticketNumber?: string;
   category?: string;
   priority?: string;
+  clientName?: string;
+  milestoneName?: string;
+  currentMilestone?: string;
+  transactionId?: string;
+  paymentDate?: string;
   [key: string]: unknown;
 }
 
@@ -63,6 +68,29 @@ export interface SendNotificationResult {
   error?: string;
 }
 
+export interface EmailSummaryFields {
+  projectName?: string;
+  senderName?: string;
+  clientName?: string;
+  builderName?: string;
+  serviceName?: string;
+  escrowAmount?: string;
+  paymentAmount?: string;
+  currentMilestone?: string;
+  statusLabel?: string;
+  paymentDate?: string;
+  transactionReference?: string;
+  rating?: string;
+  ticketNumber?: string;
+  category?: string;
+}
+
+export interface EmailSummaryRow {
+  label: string;
+  value: string;
+  badge?: 'success' | 'warning' | 'default';
+}
+
 export interface EmailTemplateData {
   type: NotificationType;
   heading: string;
@@ -74,4 +102,7 @@ export interface EmailTemplateData {
   primaryCtaHref: string;
   secondaryCtaLabel?: string;
   secondaryCtaHref?: string;
+  summaryFields?: EmailSummaryFields;
+  summaryRows?: EmailSummaryRow[];
+  infoItems?: string[];
 }

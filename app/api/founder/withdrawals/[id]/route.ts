@@ -2,12 +2,9 @@ import { NextResponse } from 'next/server';
 
 import { logAdminAction, requireFounder, supabaseAdmin } from '@/lib/founder/server';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
-
-
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type RouteParams = { params: Promise<{ id: string }> };
-
-
 
 type WithdrawalStatus =
 
@@ -51,6 +48,7 @@ const VALID_TRANSITIONS: Record<WithdrawalStatus, WithdrawalStatus[]> = {
 
 
 
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 payout engine — Razorpay transfer execution, reconciliation, failure retry.
 export async function PATCH(req: Request, { params }: RouteParams) {
 
   const auth = await requireFounder();
@@ -229,7 +227,16 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     });
 
-
+    if (nextStatus === 'completed') {
+      const finance = createFinanceIntegrationService(supabaseAdmin);
+      void finance.recordWithdrawalCompleted({
+        withdrawalId: id,
+        builderId: existing.builder_id,
+        amountUsd: Number(existing.amount_usd),
+        referenceCode: existing.reference_code,
+        processedBy: auth.actor.id,
+      });
+    }
 
     return NextResponse.json({ withdrawal: updated });
 

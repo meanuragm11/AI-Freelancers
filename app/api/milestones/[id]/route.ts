@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdminClient, getAuthenticatedUser } from '@/lib/server/supabase';
 import { ACTIVE_DISPUTE_STATUSES } from '@/lib/marketplace/status';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -295,17 +296,72 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       if (milestoneUpdateError) throw milestoneUpdateError;
       if (deliverableUpdateError) throw deliverableUpdateError;
 
-      const invoiceNumber = `ZEL-INV-${Date.now().toString().slice(-8)}`;
-      await supabaseAdmin.from('invoices').insert({
-        collab_id: milestone.collab_id,
-        buyer_id: collab.buyer_id,
-        builder_id: collab.builder_id,
-        gross_amount_usd: milestone.amount_usd,
-        platform_fee_usd: 5,
-        net_payout_usd: Math.max(0, Number(milestone.amount_usd) - 5),
-        invoice_number: invoiceNumber,
-        status: 'processing',
+      const finance = createFinanceIntegrationService(supabaseAdmin);
+      const platformFeeUsd = 5;
+      const grossAmountUsd = Number(milestone.amount_usd);
+
+      const { data: paymentTxn } = await supabaseAdmin
+        .from('transactions')
+        .select('id')
+        .eq('item_id', id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      void finance.recordMilestoneApproved({
+        buyerId: collab.buyer_id ?? null,
+        builderId: collab.builder_id ?? null,
+        collabId: milestone.collab_id,
+        milestoneId: id,
+        transactionId: paymentTxn?.id ?? null,
+        amountUsd: grossAmountUsd,
+        actorId: user.id,
       });
+
+      const invoiceNumber = `ZEL-INV-${Date.now().toString().slice(-8)}`;
+      const { data: invoice } = await supabaseAdmin
+        .from('invoices')
+        .insert({
+          collab_id: milestone.collab_id,
+          buyer_id: collab.buyer_id,
+          builder_id: collab.builder_id,
+          gross_amount_usd: milestone.amount_usd,
+          platform_fee_usd: platformFeeUsd,
+          net_payout_usd: Math.max(0, grossAmountUsd - platformFeeUsd),
+          invoice_number: invoiceNumber,
+          status: 'processing',
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (invoice?.id) {
+        void finance.recordInvoiceCreated({
+          buyerId: collab.buyer_id ?? null,
+          builderId: collab.builder_id ?? null,
+          collabId: milestone.collab_id,
+          milestoneId: id,
+          invoiceId: invoice.id,
+          invoiceNumber,
+          grossAmountUsd,
+          platformFeeUsd,
+          actorId: user.id,
+        });
+      }
+
+      if (collab.buyer_id && collab.builder_id) {
+        void finance.recordEscrowReleased({
+          collabId: milestone.collab_id,
+          milestoneId: id,
+          transactionId: paymentTxn?.id ?? null,
+          buyerId: collab.buyer_id,
+          builderId: collab.builder_id,
+          grossAmountUsd,
+          platformFeeUsd,
+          currency: 'USD',
+          actorId: user.id,
+        });
+      }
 
       if (collab.builder_id) {
         void sendNotification({

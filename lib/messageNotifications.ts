@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { formatDisplayName } from '@/lib/display/formatDisplayName';
-import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
-import { queueChatModerationFromMessageId } from '@/lib/moderation/queueFromMessage';
+import { sanitizeEmailText } from '@/lib/notifications/emailContent';
+import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';import { queueChatModerationFromMessageId } from '@/lib/moderation/queueFromMessage';
 
 
 
@@ -14,16 +14,10 @@ const supabaseAdmin = createClient(
 
 
 function formatPreview(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.startsWith('[[FILE|')) return 'Sent an attachment';
-  if (trimmed.startsWith('[[MILESTONE|')) return 'Sent a milestone proposal';
-  if (trimmed.startsWith('[[QUOTATION|')) return 'Sent a quotation';
-  if (trimmed.startsWith('[[PROPOSAL_CARD|')) return 'Sent a project proposal';
-  if (trimmed.startsWith('[[PROPOSAL_ACCEPTED|')) return 'Accepted a project proposal';
-  if (trimmed.startsWith('[[PROPOSAL_FUNDED|')) return 'Funded a project proposal';
-  return trimmed.slice(0, 200) || 'New message';
+  const sanitized = sanitizeEmailText(text);
+  if (sanitized) return sanitized.slice(0, 200);
+  return 'New message';
 }
-
 
 
 export async function sendMessageNotificationForMessage(

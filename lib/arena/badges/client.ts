@@ -1,6 +1,6 @@
 /** Client-side helpers for recognition badges */
 
-import type { RecognitionBadgeGrant, RecognitionBadgeKey } from './types';
+import type { RecognitionBadgeGrant } from './types';
 import { getPrimaryBadge } from './types';
 
 export async function fetchBuilderRecognition(
@@ -30,19 +30,4 @@ export async function fetchBuildersRecognitionBatch(
     throw new Error(result.error || 'Failed to load recognition badges');
   }
   return result.badgesByBuilder ?? {};
-}
-
-export async function fetchMyRecognition(): Promise<{
-  badges: RecognitionBadgeGrant[];
-  nextBadge: { key: RecognitionBadgeKey; label: string; emoji: string; hint: string } | null;
-}> {
-  const response = await fetch('/api/builder/recognition');
-  const result = await response.json();
-  if (!response.ok) {
-    throw new Error(result.error || 'Failed to load recognition');
-  }
-  return {
-    badges: result.badges ?? [],
-    nextBadge: result.nextBadge ?? null,
-  };
 }

@@ -84,12 +84,24 @@ function AuthCallbackContent() {
       } = await supabase.auth.getUser();
 
       if (error) {
-        await handleAuthFailure(error.message);
+        if (!isRecoveryFlow) {
+          await handleAuthFailure(error.message);
+        }
         return;
       }
 
       if (isStaleAuthSessionError(error) || !user) {
-        await handleAuthFailure("Authentication failed.");
+        if (!isRecoveryFlow) {
+          await handleAuthFailure("Authentication failed.");
+        }
+        return;
+      }
+
+      if (isRecoveryFlow) {
+        if (redirected) return;
+        redirected = true;
+        setStatus("Reset link verified. Redirecting…");
+        router.replace("/auth/reset-password");
         return;
       }
 
@@ -97,7 +109,25 @@ function AuthCallbackContent() {
       await redirectToApp(user.id, fullName);
     };
 
+    const isRecoveryFlow = searchParams.get("type") === "recovery";
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session?.user) {
+        if (redirected) return;
+        redirected = true;
+        setStatus("Reset link verified. Redirecting…");
+        router.replace("/auth/reset-password");
+        return;
+      }
+
+      if (isRecoveryFlow && (event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        if (redirected) return;
+        redirected = true;
+        setStatus("Reset link verified. Redirecting…");
+        router.replace("/auth/reset-password");
+        return;
+      }
+
       if (event === "SIGNED_IN" && session?.user) {
         const fullName = session.user.user_metadata?.full_name || "Zelance User";
         await redirectToApp(session.user.id, fullName);

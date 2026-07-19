@@ -3,6 +3,7 @@ export const FOUNDER_NAV_ITEMS = [
   { href: '/founder/tickets', label: 'Support Tickets', icon: 'inbox' },
   { href: '/founder/disputes', label: 'Disputes', icon: 'scale' },
   { href: '/founder/payments', label: 'Payments', icon: 'card' },
+  { href: '/founder/finance', label: 'Finance', icon: 'finance' },
   { href: '/founder/users', label: 'Users', icon: 'users' },
   { href: '/founder/moderation', label: 'AI Moderation', icon: 'shield' },
 ] as const;

@@ -1,7 +1,8 @@
+import { getSiteUrl } from '@/lib/urls/appUrl';
+
 export const SITE_NAME = 'Zelance';
 
-export const SITE_URL =
-  (process.env.NEXT_PUBLIC_APP_URL || 'https://zelance.co').replace(/\/$/, '');
+export const SITE_URL = getSiteUrl();
 
 export const SITE_EMAIL = 'support@zelance.co';
 

@@ -9,7 +9,6 @@ import ServiceManager from '@/components/builder/ServiceManager';
 import ExpertOnboardingWizard from '@/components/builder/ExpertOnboardingWizard';
 import PortfolioManager from '@/components/builder/PortfolioManager';
 import EarningsLedgerPanel from '@/components/builder/EarningsLedgerPanel';
-import BuilderRecognitionPanel from '@/components/builder/BuilderRecognitionPanel';
 import NegotiationModal from '@/components/NegotiationModal';
 import { ONBOARDING_COUNTRIES, type OnboardingProfileState } from '@/lib/onboarding/profile';
 import { listBuilderProjectRequests } from '@/lib/project-requests';
@@ -374,9 +373,6 @@ export default function UnifiedBuilderWorkspace() {
           <button onClick={() => setActiveView('finances')} className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeView === 'finances' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             {Icons.Finances} Earnings Ledger
           </button>
-          <Link href="/builder/recognition" className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 text-slate-400 hover:bg-slate-800 hover:text-white">
-            {Icons.Profile} Recognition
-          </Link>
         </nav>
 
         <div className="p-4 border-t border-slate-800 space-y-1 mt-auto">
@@ -423,10 +419,6 @@ export default function UnifiedBuilderWorkspace() {
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Solution Sales</p>
                   <p className="text-3xl font-black text-purple-600">{stats.componentSales}</p>
                 </div>
-              </div>
-
-              <div className="mb-10">
-                <BuilderRecognitionPanel />
               </div>
 
               {/* Recent Clients Section */}

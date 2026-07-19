@@ -22,7 +22,7 @@ export const companyLinks: FooterLinkItem[] = [
 
 export const resourceLinks: FooterLinkItem[] = [
   { label: 'Help Center', href: '/support' },
-  { label: 'FAQ', href: '/support' },
+  { label: 'FAQ', href: '/faq' },
   { label: 'My Tickets', href: '/support/tickets' },
 ];
 

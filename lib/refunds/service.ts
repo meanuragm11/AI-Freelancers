@@ -3,6 +3,9 @@ import { getRazorpayClient } from '@/lib/payments/razorpayClient';
 import { sendNotification, NotificationType } from '@/lib/notifications/notificationService';
 import { maybeCompleteDisputeFromRefund } from '@/lib/disputes/completePaymentExecution';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
+import { buildProviderReference } from '@/lib/finance/utils';
+import { SUPPORTED_PAYMENT_PROVIDER } from '@/lib/finance/constants';
 
 export type RefundType = 'full' | 'partial' | 'milestone' | 'custom_settlement';
 
@@ -32,6 +35,7 @@ type CreateRefundRequestParams = {
  * (POST /api/refunds) and the founder-initiated flow (POST /api/founder/refunds,
  * typically triggered while resolving a dispute in the buyer's favor).
  */
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 refund pipeline — ledger reversal, escrow unfreeze, reconciliation hooks.
 export async function createRefundRequest({
   supabaseAdmin,
   collabId,
@@ -113,6 +117,18 @@ export async function createRefundRequest({
 
   if (insertError) throw insertError;
 
+  const finance = createFinanceIntegrationService(supabaseAdmin);
+  void finance.recordRefundRequested({
+    refundRequestId: inserted.id,
+    buyerId: collab.buyer_id,
+    builderId: collab.builder_id,
+    collabId,
+    transactionId,
+    disputeId,
+    amountUsd: amount,
+    actorId: requestedBy,
+  });
+
   void logBusinessEvent({
     eventType: 'refund.requested',
     entityType: 'refund_request',
@@ -145,6 +161,7 @@ type DecideRefundRequestParams = {
   note?: string;
 };
 
+// TODO(FINANCE_PHASE_1): Integrate with Finance V2 payout/refund engine — async execution, retry queue, dispute closure sync.
 /** Founder decision on a refund request. Approval synchronously calls Razorpay. */
 export async function decideRefundRequest({
   supabaseAdmin,
@@ -272,6 +289,21 @@ export async function decideRefundRequest({
 
       if (finalStatus === 'completed') {
         void maybeCompleteDisputeFromRefund(supabaseAdmin, refund, reviewerId);
+
+        const finance = createFinanceIntegrationService(supabaseAdmin);
+        void finance.recordRefundCompleted({
+          collabId: refund.collab_id,
+          buyerId: refund.buyer_id,
+          builderId: refund.builder_id,
+          grossAmountUsd: finalAmount,
+          platformFeeUsd: 0,
+          currency: 'USD',
+          transactionId: transaction.id,
+          refundRequestId: refundId,
+          disputeId: refund.dispute_id ?? null,
+          actorId: reviewerId,
+          providerReference: buildProviderReference(SUPPORTED_PAYMENT_PROVIDER, razorpayRefund.id),
+        });
       }
 
       void logBusinessEvent({

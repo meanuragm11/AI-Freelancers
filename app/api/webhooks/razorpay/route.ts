@@ -45,6 +45,7 @@ export async function POST(req: Request) {
 
       console.log(`Payment captured: ${checkoutType} - ${referenceId}`);
 
+      // TODO(FINANCE_PHASE_1): Integrate with Finance V2 webhook processor — dedupe, signature audit, async fulfillment queue.
       await fulfillRazorpayPayment(
         {
           checkoutType,

@@ -8,6 +8,7 @@ import { SUPPORT_ARBITRATION_RELATED_CATEGORIES } from '@/lib/support/constants'
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 import { ACTIVE_DISPUTE_STATUSES, DISPUTE_STATUS_LABELS } from '@/lib/disputes/constants';
 import { notifyFoundersOfDisputeEvent } from '@/lib/disputes/founderNotifications';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
 
 type EvidenceFile = {
   name: string;
@@ -517,6 +518,16 @@ export async function POST(req: Request) {
       title: 'New dispute opened',
       message: `A buyer opened a dispute for "${collab.title || 'a project'}".`,
       idempotencyKey: `opened:${dispute.id}`,
+    });
+
+    const finance = createFinanceIntegrationService(supabaseAdmin);
+    void finance.recordDisputeOpened({
+      disputeId: dispute.id,
+      collabId: collab.id,
+      buyerId: collab.buyer_id,
+      builderId: collab.builder_id,
+      actorId: user.id,
+      escrowAmountUsd: collab.escrow_amount_usd ? Number(collab.escrow_amount_usd) : null,
     });
 
     return NextResponse.json({ dispute });

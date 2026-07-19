@@ -7,6 +7,9 @@ import {
 import { postMilestoneChatMessage } from '@/lib/milestones/chatMessages';
 import { logBusinessEvent } from '@/lib/events/businessEvents';
 import { ACTIVE_DISPUTE_STATUSES } from '@/lib/disputes/constants';
+import { createFinanceIntegrationService } from '@/lib/finance/integration';
+import { buildProviderReference } from '@/lib/finance/utils';
+import { SUPPORTED_PAYMENT_PROVIDER } from '@/lib/finance/constants';
 
 type FulfillParams = {
   checkoutType: 'escrow' | 'asset' | 'solution' | 'revision';
@@ -23,6 +26,37 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+type TransactionFinanceRow = {
+  id: string;
+  buyer_id: string | null;
+  builder_id: string | null;
+  amount_usd: number;
+  fee_usd: number | null;
+  collab_id: string | null;
+  milestone_id: string | null;
+};
+
+async function loadTransactionForFinance(
+  supabaseAdmin: SupabaseClient,
+  transactionId: string | null,
+  orderId: string | null
+): Promise<TransactionFinanceRow | null> {
+  if (!transactionId && !orderId) return null;
+
+  let query = supabaseAdmin
+    .from('transactions')
+    .select('id, buyer_id, builder_id, amount_usd, fee_usd, collab_id, milestone_id');
+
+  if (transactionId) {
+    query = query.eq('id', transactionId);
+  } else {
+    query = query.eq('order_id', orderId!);
+  }
+
+  const { data } = await query.maybeSingle();
+  return (data as TransactionFinanceRow | null) ?? null;
 }
 
 export async function fulfillRazorpayPayment(
@@ -238,6 +272,40 @@ export async function fulfillRazorpayPayment(
       });
     }
 
+    const finance = createFinanceIntegrationService(supabaseAdmin);
+    const txnRow = await loadTransactionForFinance(supabaseAdmin, transactionId, orderId);
+    const grossAmountUsd = Number(txnRow?.amount_usd ?? milestone.amount_usd);
+    const platformFeeUsd = Number(txnRow?.fee_usd ?? 0);
+
+    if (collab?.buyer_id && collab?.builder_id) {
+      void finance.recordPaymentCaptured({
+        checkoutType: 'escrow',
+        paymentId,
+        actorId: userId,
+        buyerId: collab.buyer_id,
+        builderId: collab.builder_id,
+        collabId: milestone.collab_id,
+        milestoneId: milestone.id,
+        transactionId: transactionId ?? txnRow?.id ?? null,
+        grossAmountUsd,
+        platformFeeUsd,
+        currency: 'USD',
+      });
+
+      void finance.recordEscrowFunded({
+        collabId: milestone.collab_id,
+        milestoneId: milestone.id,
+        transactionId: transactionId ?? txnRow?.id ?? null,
+        buyerId: collab.buyer_id,
+        builderId: collab.builder_id,
+        grossAmountUsd: Number(milestone.amount_usd),
+        platformFeeUsd,
+        currency: 'USD',
+        actorId: userId,
+        providerReference: buildProviderReference(SUPPORTED_PAYMENT_PROVIDER, paymentId),
+      });
+    }
+
     return { checkoutType, referenceId, collabId: milestone.collab_id };
   }
 
@@ -320,6 +388,21 @@ export async function fulfillRazorpayPayment(
       });
     }
 
+    const finance = createFinanceIntegrationService(supabaseAdmin);
+    const txnRow = await loadTransactionForFinance(supabaseAdmin, transactionId, orderId);
+    void finance.recordPaymentCaptured({
+      checkoutType: 'revision',
+      paymentId,
+      actorId: userId,
+      buyerId: collab.buyer_id ?? txnRow?.buyer_id ?? userId,
+      builderId: collab.builder_id ?? txnRow?.builder_id ?? null,
+      collabId: referenceId,
+      transactionId: transactionId ?? txnRow?.id ?? null,
+      grossAmountUsd: Number(txnRow?.amount_usd ?? 0),
+      platformFeeUsd: Number(txnRow?.fee_usd ?? 0),
+      currency: 'USD',
+    });
+
     return { checkoutType, referenceId, collabId: referenceId, maxRevisions: nextMaxRevisions };
   }
 
@@ -400,6 +483,20 @@ export async function fulfillRazorpayPayment(
           },
         });
       }
+
+      const finance = createFinanceIntegrationService(supabaseAdmin);
+      const txnRow = await loadTransactionForFinance(supabaseAdmin, transactionId, orderId);
+      void finance.recordPaymentCaptured({
+        checkoutType: 'solution',
+        paymentId,
+        actorId: userId,
+        buyerId: txnRow?.buyer_id ?? userId,
+        builderId: service?.builder_id ?? txnRow?.builder_id ?? null,
+        transactionId: transactionId ?? txnRow?.id ?? null,
+        grossAmountUsd: Number(txnRow?.amount_usd ?? 0),
+        platformFeeUsd: Number(txnRow?.fee_usd ?? 0),
+        currency: 'USD',
+      });
 
       return { checkoutType, referenceId, libraryReady: true };
     }
@@ -485,6 +582,20 @@ export async function fulfillRazorpayPayment(
       },
     });
   }
+
+  const finance = createFinanceIntegrationService(supabaseAdmin);
+  const txnRow = await loadTransactionForFinance(supabaseAdmin, transactionId, orderId);
+  void finance.recordPaymentCaptured({
+    checkoutType: 'asset',
+    paymentId,
+    actorId: userId,
+    buyerId: txnRow?.buyer_id ?? userId,
+    builderId: component?.builder_id ?? txnRow?.builder_id ?? null,
+    transactionId: transactionId ?? txnRow?.id ?? null,
+    grossAmountUsd: Number(txnRow?.amount_usd ?? 0),
+    platformFeeUsd: Number(txnRow?.fee_usd ?? 0),
+    currency: 'USD',
+  });
 
   return { checkoutType, referenceId, libraryReady: true };
   }

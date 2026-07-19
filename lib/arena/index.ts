@@ -21,7 +21,6 @@ export {
 export {
   fetchBuilderRecognition,
   fetchBuildersRecognitionBatch,
-  fetchMyRecognition,
 } from './badges/client';
 
 export { recordArenaEvent, recordArenaMilestone } from './fetchArena';
