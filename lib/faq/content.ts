@@ -181,7 +181,8 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
       {
         id: 'forgot-password',
         question: 'I forgot my password.',
-        answer: 'Reset it from the login page.',
+        answer:
+          'Use “Forgot password?” on the sign-in page. If you do not see the email, check spam and wait before requesting another link — Supabase’s built-in mailer allows only about 2–4 reset emails per hour per address on the free tier. Projects with custom SMTP are not subject to that limit.',
       },
     ],
   },

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { isStaleAuthSessionError } from "@/lib/auth/errors";
+import {
+  hasAuthCallbackHash,
+  isPasswordRecoveryUrl,
+  parseAuthHashParams,
+} from "@/lib/auth/recovery";
 import { resolvePostAuthDestination, saveAuthRedirect } from "@/lib/auth/postAuthRedirect";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -57,6 +62,15 @@ function AuthCallbackContent() {
     const redirectParam = searchParams.get("redirect");
     if (redirectParam) saveAuthRedirect(redirectParam);
 
+    const isRecoveryFlow = () => isPasswordRecoveryUrl(searchParams);
+
+    const redirectToResetPassword = () => {
+      if (redirected) return;
+      redirected = true;
+      setStatus("Reset link verified. Redirecting…");
+      router.replace("/auth/reset-password");
+    };
+
     const redirectToApp = async (userId: string, fullName: string) => {
       if (redirected) return;
       redirected = true;
@@ -78,30 +92,32 @@ function AuthCallbackContent() {
     };
 
     const completeSignIn = async () => {
+      if (isRecoveryFlow() || parseAuthHashParams().get("type") === "recovery") {
+        redirectToResetPassword();
+        return;
+      }
+
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser();
 
       if (error) {
-        if (!isRecoveryFlow) {
+        if (!isRecoveryFlow()) {
           await handleAuthFailure(error.message);
         }
         return;
       }
 
       if (isStaleAuthSessionError(error) || !user) {
-        if (!isRecoveryFlow) {
+        if (!isRecoveryFlow()) {
           await handleAuthFailure("Authentication failed.");
         }
         return;
       }
 
-      if (isRecoveryFlow) {
-        if (redirected) return;
-        redirected = true;
-        setStatus("Reset link verified. Redirecting…");
-        router.replace("/auth/reset-password");
+      if (isRecoveryFlow()) {
+        redirectToResetPassword();
         return;
       }
 
@@ -109,22 +125,14 @@ function AuthCallbackContent() {
       await redirectToApp(user.id, fullName);
     };
 
-    const isRecoveryFlow = searchParams.get("type") === "recovery";
-
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session?.user) {
-        if (redirected) return;
-        redirected = true;
-        setStatus("Reset link verified. Redirecting…");
-        router.replace("/auth/reset-password");
-        return;
-      }
+      const recovery =
+        isRecoveryFlow() ||
+        event === "PASSWORD_RECOVERY" ||
+        parseAuthHashParams().get("type") === "recovery";
 
-      if (isRecoveryFlow && (event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        if (redirected) return;
-        redirected = true;
-        setStatus("Reset link verified. Redirecting…");
-        router.replace("/auth/reset-password");
+      if (recovery && session?.user) {
+        redirectToResetPassword();
         return;
       }
 
@@ -134,7 +142,10 @@ function AuthCallbackContent() {
       }
     });
 
-    completeSignIn();
+    // Hash tokens are exchanged asynchronously — wait for onAuthStateChange.
+    if (!hasAuthCallbackHash()) {
+      void completeSignIn();
+    }
 
     return () => {
       authListener.subscription.unsubscribe();

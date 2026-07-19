@@ -6,6 +6,7 @@ import Image from "@/components/RemoteImage";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
+import { hasAuthCallbackHash, isPasswordRecoveryUrl, parseAuthHashParams } from "@/lib/auth/recovery";
 import {
   AuthAlert,
   FieldError,
@@ -59,18 +60,32 @@ export function ResetPasswordExperience() {
       }
     };
 
+    const isRecoveryContext = () =>
+      isPasswordRecoveryUrl(new URLSearchParams(window.location.search)) ||
+      parseAuthHashParams().get("type") === "recovery";
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+      if (!session) return;
+
+      if (event === "PASSWORD_RECOVERY") {
+        markReady();
+        return;
+      }
+
+      if (event === "SIGNED_IN" && isRecoveryContext()) {
         markReady();
       }
     });
 
     const verifyRecoverySession = async () => {
+      const waitingForHash = hasAuthCallbackHash();
+      const recoveryContext = isRecoveryContext();
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (session) {
+      if (session && (recoveryContext || waitingForHash)) {
         markReady();
         return;
       }
@@ -82,13 +97,13 @@ export function ResetPasswordExperience() {
           data: { session: retrySession },
         } = await supabase.auth.getSession();
 
-        if (retrySession) {
+        if (retrySession && (recoveryContext || waitingForHash || isRecoveryContext())) {
           markReady();
           return;
         }
 
         markInvalid();
-      }, 1500);
+      }, waitingForHash ? 3000 : 1500);
     };
 
     void verifyRecoverySession();
