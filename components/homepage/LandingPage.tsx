@@ -197,7 +197,7 @@ export default function LandingPage() {
         <section className={`${SOLUTION_CARD_SECTION_CLASS} py-10 relative z-10`}>
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Solutions</h2>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Featured AI Solutions (Onboarding Freelancers)</h2>
               <p className="text-slate-500 font-medium">Top listings by completed orders and recent activity.</p>
             </div>
             <Link href="/buyer/discover" className="hidden md:block text-sm font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors">View All Solutions →</Link>
